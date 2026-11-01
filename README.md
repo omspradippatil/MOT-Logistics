@@ -4,12 +4,31 @@ A Core Java + Java Swing desktop application for managing transport fleet logist
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Option A: Run with Docker (Recommended for any PC)
+
+Run the entire application, database, and web GUI in one command on Windows, macOS, or Linux without installing Java or MySQL:
+
+```bash
+docker compose up --build
+```
+
+Then open your browser at:
+👉 **`http://localhost:6080`**
+
+- **Database**: Pre-seeded with all schema and test data automatically.
+- **Invoices**: Any generated invoices are auto-saved to your local `./invoices/` folder.
+- **MySQL Direct Access**: Port `3306` (user: `root`, no password).
+
+---
+
+### Option B: Manual Local Setup (Without Docker)
+
+#### Prerequisites
 - Java JDK 8 or higher
 - MySQL 5.7 or higher
 - MySQL Connector/J (JDBC driver)
 
-### Setup Steps
+#### Setup Steps
 
 **1. Database Setup**
 ```sql
@@ -25,8 +44,9 @@ source database/schema.sql
 **3. Update Database Password**
 Open `src/com/transport/db/DatabaseConnection.java` and change:
 ```java
-private static final String PASSWORD = "";  // ← Enter your MySQL password here
+private static final String DEFAULT_PASS = "";  // ← Enter your MySQL password here
 ```
+*(Or set environment variables `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`)*
 
 **4. Build and Run**
 ```bash

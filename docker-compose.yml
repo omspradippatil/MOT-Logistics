@@ -1,0 +1,23 @@
+services:
+  mot-logistics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mot-logistics:latest
+    container_name: mot-logistics-app
+    ports:
+      - "6080:6080"   # Web Browser GUI (noVNC)
+      - "3306:3306"   # MySQL Database Port
+      - "5900:5900"   # Raw VNC Port
+    volumes:
+      # Sync generated invoices to host machine
+      - ./invoices:/app/invoices
+      # Persist database changes across container restarts
+      - mot-db-data:/var/lib/mysql
+    environment:
+      - RESOLUTION=1366x768x24
+      - GUI_MODE=web
+    restart: unless-stopped
+
+volumes:
+  mot-db-data:

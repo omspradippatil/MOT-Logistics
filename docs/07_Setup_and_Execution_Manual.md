@@ -13,7 +13,25 @@ A comprehensive step-by-step setup guide for running and testing the application
 
 ---
 
-## 2. Fast-Track Setup (3 Easy Steps)
+## 2. Docker Setup (Recommended for Instant Cross-Platform Run)
+
+If you have Docker installed on any PC (Windows, Mac, Linux), you don't need to install Java or MySQL:
+
+```bash
+docker compose up --build
+```
+
+- **Web GUI:** Open [http://localhost:6080](http://localhost:6080) in your web browser. The entire Swing desktop interface will load with auto-scaling and window management!
+- **Database:** MariaDB with all seed data (`database/schema.sql`) runs automatically.
+- **Port Mappings:**
+  - `6080` → noVNC Web Browser Interface
+  - `3306` → Direct MySQL access
+  - `5900` → Native VNC clients
+- **Invoices:** Saved to `./invoices/` on your host PC automatically.
+
+---
+
+## 3. Fast-Track Manual Setup (3 Easy Steps)
 
 ### Step 1: Initialize Database
 Ensure MySQL is running, then execute the schema file:

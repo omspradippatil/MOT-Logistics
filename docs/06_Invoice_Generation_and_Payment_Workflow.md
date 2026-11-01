@@ -47,7 +47,8 @@ This document explains the core automated billing engine, detailing how raw trip
                            │
                            ▼ Click "Export PDF / Invoice"
 ┌──────────────────────────────────────────────────────────┐
-│      Print-Ready File Written to invoices/INV-0001.txt   │
+│      Standard PDF Document Written to invoices/INV-0001.pdf     │
+│      Formatted Text Voucher Written to invoices/INV-0001.txt   │
 └──────────────────────────────────────────────────────────┘
 ```
 

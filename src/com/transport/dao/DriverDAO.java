@@ -158,6 +158,40 @@ public class DriverDAO {
         return null;
     }
 
+    /**
+     * Delete a driver by ID.
+     * Safely unassigns vehicles first. If existing trips are linked,
+     * foreign key prevents deletion to protect financial audit history.
+     */
+    public boolean deleteDriver(int id) {
+        String unassignSql = "UPDATE vehicle SET driver_id = NULL WHERE driver_id = ?";
+        String deleteSql   = "DELETE FROM driver WHERE id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement unassignStmt = conn.prepareStatement(unassignSql);
+                 PreparedStatement deleteStmt   = conn.prepareStatement(deleteSql)) {
+
+                unassignStmt.setInt(1, id);
+                unassignStmt.executeUpdate();
+
+                deleteStmt.setInt(1, id);
+                int rows = deleteStmt.executeUpdate();
+
+                conn.commit();
+                return rows > 0;
+            } catch (SQLException ex) {
+                conn.rollback();
+                throw ex;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            System.out.println("DriverDAO.deleteDriver error: " + e.getMessage());
+            return false;
+        }
+    }
+
     /** Helper: convert a ResultSet row into a Driver object */
     private Driver mapRow(ResultSet rs) throws SQLException {
         Driver d = new Driver();

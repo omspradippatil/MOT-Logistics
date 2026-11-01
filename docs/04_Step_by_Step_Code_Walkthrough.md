@@ -61,6 +61,7 @@ DAOs encapsulate all SQL statements and bridge MySQL tables with Java models.
 - `login(String username, String password)`: Checks password and ensures `is_active = 1`.
 - `addDriver(Driver driver)`: Registers a driver with default `is_active = 1`.
 - `updateDriver(Driver driver)`: Edits profile, phone number, and password.
+- `deleteDriver(int id)`: Safely unassigns linked vehicles and deletes driver account (blocked if trips exist).
 - `setDriverActive(int driverId, boolean active)`: Enables/disables access without deleting trip audit history.
 - `getAllDrivers()`: Lists all drivers for the admin management table.
 - `getActiveDrivers()`: Filters drivers eligible for vehicle assignment.
@@ -150,5 +151,7 @@ DAOs encapsulate all SQL statements and bridge MySQL tables with Java models.
 - `isValidGST(String gst)`: Validates 15-character GST numbers.
 
 ### `InvoiceGenerator.java`
-- Generates print-ready text invoices and formatted files directly to the `invoices/` directory.
+- `generatePDF(Invoice, List<Trip>, filePath)`: Generates valid, standard PDF 1.4 documents natively using pure Core Java with headers, gridlines, itemized billing rows, and signature blocks.
+- `generateTextInvoice(Invoice, List<Trip>, filePath)`: Generates clean, tabulated text billing files.
+- `autoSaveInvoice(Invoice, List<Trip>)`: Automatically generates both `.pdf` and `.txt` copies in the `invoices/` directory.
 - Includes header, client info, billing period, tabulated trip ledger, total calculations, and dual signature blocks.

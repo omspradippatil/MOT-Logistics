@@ -25,6 +25,7 @@ public class DriverPanel extends JPanel implements Refreshable {
 
     private ModernButton addBtn;
     private ModernButton updateBtn;
+    private ModernButton deleteBtn;
     private ModernButton clearBtn;
 
     private DriverDAO driverDAO = new DriverDAO();
@@ -81,9 +82,11 @@ public class DriverPanel extends JPanel implements Refreshable {
         btnPanel.setOpaque(false);
         addBtn    = new ModernButton("＋ Add Driver", UITheme.SUCCESS_GREEN);
         updateBtn = new ModernButton("✎ Update Driver", UITheme.UPDATE_BLUE);
+        deleteBtn = new ModernButton("🗑 Delete Driver", UITheme.DANGER_RED);
         clearBtn  = new ModernButton("✕ Clear", UITheme.SECONDARY_GRAY);
         btnPanel.add(addBtn);
         btnPanel.add(updateBtn);
+        btnPanel.add(deleteBtn);
         btnPanel.add(clearBtn);
 
         gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 4;
@@ -107,6 +110,7 @@ public class DriverPanel extends JPanel implements Refreshable {
 
         addBtn.addActionListener(e    -> addDriver());
         updateBtn.addActionListener(e -> updateDriver());
+        deleteBtn.addActionListener(e -> deleteDriver());
         clearBtn.addActionListener(e  -> clearForm());
 
         add(formPanel,  BorderLayout.NORTH);
@@ -178,6 +182,29 @@ public class DriverPanel extends JPanel implements Refreshable {
             loadDrivers();
         } else {
             JOptionPane.showMessageDialog(this, "Failed to update driver details!", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void deleteDriver() {
+        if (selectedDriverId == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a driver from the table to delete!", "Select Driver", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Are you sure you want to delete this driver account?\n\nNote: If this driver has logged trips, deletion is blocked to preserve audit history.",
+                "Confirm Delete Driver", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (driverDAO.deleteDriver(selectedDriverId)) {
+                JOptionPane.showMessageDialog(this, "Driver deleted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                clearForm();
+                loadDrivers();
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        "Cannot delete driver!\n\nTrips are linked to this driver in the database.\nTo disable their access without losing trip records, uncheck 'Active Account' and click 'Update Driver'.",
+                        "Integrity Constraint", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 

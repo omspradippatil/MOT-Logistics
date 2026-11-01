@@ -42,6 +42,7 @@ public class InvoicePanel extends JPanel implements Refreshable {
 
     private ModernButton generateBtn;
     private ModernButton exportPDFBtn;
+    private ModernButton exportTxtBtn;
     private ModernButton viewHistoryBtn;
 
     private TripDAO    tripDAO    = new TripDAO();
@@ -117,12 +118,15 @@ public class InvoicePanel extends JPanel implements Refreshable {
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         btnPanel.setOpaque(false);
         generateBtn    = new ModernButton("⚡ Generate Invoice", UITheme.BRAND_BLUE);
-        exportPDFBtn   = new ModernButton("📥 Export Invoice File", UITheme.AMBER_ORANGE);
+        exportPDFBtn   = new ModernButton("📥 Export PDF", UITheme.AMBER_ORANGE);
+        exportTxtBtn   = new ModernButton("📄 Export Text", UITheme.SECONDARY_GRAY);
         viewHistoryBtn = new ModernButton("📜 Invoice Archive", UITheme.SECONDARY_GRAY);
         exportPDFBtn.setEnabled(false);
+        exportTxtBtn.setEnabled(false);
 
         btnPanel.add(generateBtn);
         btnPanel.add(exportPDFBtn);
+        btnPanel.add(exportTxtBtn);
         btnPanel.add(viewHistoryBtn);
 
         gbc.gridx = 2; gbc.gridy = 2; gbc.gridwidth = 2;
@@ -162,6 +166,7 @@ public class InvoicePanel extends JPanel implements Refreshable {
 
         generateBtn.addActionListener(e    -> generateInvoice());
         exportPDFBtn.addActionListener(e   -> exportPDF());
+        exportTxtBtn.addActionListener(e   -> exportText());
         viewHistoryBtn.addActionListener(e -> showInvoiceHistory());
 
         JPanel northPanel = new JPanel(new BorderLayout(0, 10));
@@ -281,6 +286,7 @@ public class InvoicePanel extends JPanel implements Refreshable {
 
             lastGeneratedInvoice = invoice;
             exportPDFBtn.setEnabled(true);
+            exportTxtBtn.setEnabled(true);
 
             SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
             invoiceNumberLabel.setText(invoice.getInvoiceNumber());
@@ -298,7 +304,7 @@ public class InvoicePanel extends JPanel implements Refreshable {
                 });
             }
 
-            // Auto-save plain text copy to invoices/
+            // Auto-save copies to invoices/
             InvoiceGenerator.autoSaveInvoice(invoice, lastTrips);
 
             JOptionPane.showMessageDialog(this,
@@ -307,7 +313,7 @@ public class InvoicePanel extends JPanel implements Refreshable {
                 "Period        : " + MONTH_NAMES[month-1] + " " + year + "\n" +
                 "Trips Billed  : " + lastTrips.size() + "\n" +
                 "Total Payable : ₹ " + String.format("%,.2f", totalAmount) + "\n\n" +
-                "Click 'Export Invoice File' to save as printable file.",
+                "Click 'Export PDF' to save official PDF document,\nor 'Export Text' to save plain text voucher.",
                 "Invoice Finalized", JOptionPane.INFORMATION_MESSAGE);
         } else {
             JOptionPane.showMessageDialog(this, "Failed to save invoice record in database!", "Error", JOptionPane.ERROR_MESSAGE);
@@ -321,17 +327,59 @@ public class InvoicePanel extends JPanel implements Refreshable {
         }
 
         JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setSelectedFile(new java.io.File(lastGeneratedInvoice.getInvoiceNumber() + "_MOT_Logistics.pdf"));
+        int result = fileChooser.showSaveDialog(this);
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            String filePath = fileChooser.getSelectedFile().getAbsolutePath();
+            if (!filePath.toLowerCase().endsWith(".pdf")) {
+                filePath += ".pdf";
+            }
+
+            boolean success = InvoiceGenerator.generatePDF(lastGeneratedInvoice, lastTrips, filePath);
+
+            if (success) {
+                int openChoice = JOptionPane.showConfirmDialog(this,
+                    "PDF Invoice generated successfully!\n\nSaved to:\n" + filePath + "\n\nWould you like to open the PDF file now?",
+                    "PDF Export Successful", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
+
+                if (openChoice == JOptionPane.YES_OPTION) {
+                    try {
+                        if (Desktop.isDesktopSupported()) {
+                            Desktop.getDesktop().open(new java.io.File(filePath));
+                        }
+                    } catch (Exception ex) {
+                        System.out.println("Could not launch PDF viewer: " + ex.getMessage());
+                    }
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to export PDF invoice file!", "Export Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void exportText() {
+        if (lastGeneratedInvoice == null || lastTrips == null) {
+            JOptionPane.showMessageDialog(this, "Please generate an invoice before exporting!", "No Invoice Active", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JFileChooser fileChooser = new JFileChooser();
         fileChooser.setSelectedFile(new java.io.File(lastGeneratedInvoice.getInvoiceNumber() + "_MOT_Logistics.txt"));
         int result = fileChooser.showSaveDialog(this);
 
         if (result == JFileChooser.APPROVE_OPTION) {
             String filePath = fileChooser.getSelectedFile().getAbsolutePath();
+            if (!filePath.toLowerCase().endsWith(".txt")) {
+                filePath += ".txt";
+            }
+
             boolean success = InvoiceGenerator.generateTextInvoice(lastGeneratedInvoice, lastTrips, filePath);
 
             if (success) {
-                JOptionPane.showMessageDialog(this, "Invoice exported successfully to:\n" + filePath, "File Saved", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Text invoice saved successfully to:\n" + filePath, "File Saved", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                JOptionPane.showMessageDialog(this, "Failed to export invoice file!", "Export Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Failed to export text invoice file!", "Export Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }

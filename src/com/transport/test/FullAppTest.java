@@ -164,6 +164,13 @@ public class FullAppTest {
             dao.setDriverActive(logged.getId(), true);
             Driver reactivatedLogin = dao.login(testUsername, "pass123");
             assertTrue("Reactivated driver can log in again", reactivatedLogin != null);
+
+            // Test delete driver
+            boolean deleted = dao.deleteDriver(logged.getId());
+            assertTrue("Driver cleanly deleted from database via deleteDriver()", deleted);
+
+            Driver afterDelete = dao.getDriverById(logged.getId());
+            assertTrue("Driver no longer exists in database after deletion", afterDelete == null);
         }
     }
 
@@ -287,13 +294,22 @@ public class FullAppTest {
         // Export plain text file
         String exportPath = "invoices/" + invNum + "_TEST.txt";
         boolean fileExported = InvoiceGenerator.generateTextInvoice(invoice, trips, exportPath);
-        assertTrue("Invoice formatted and exported to disk", fileExported);
+        assertTrue("Invoice formatted and exported to disk as text", fileExported);
 
         File f = new File(exportPath);
-        assertTrue("Exported invoice file exists and is non-empty (" + f.length() + " bytes)", f.exists() && f.length() > 200);
+        assertTrue("Exported text invoice exists and is non-empty (" + f.length() + " bytes)", f.exists() && f.length() > 200);
 
-        // Clean up test file
+        // Export real PDF file
+        String pdfPath = "invoices/" + invNum + "_TEST.pdf";
+        boolean pdfExported = InvoiceGenerator.generatePDF(invoice, trips, pdfPath);
+        assertTrue("Invoice generated and exported as valid PDF document", pdfExported);
+
+        File pdfFile = new File(pdfPath);
+        assertTrue("Exported PDF file exists and is standard binary (" + pdfFile.length() + " bytes)", pdfFile.exists() && pdfFile.length() > 500);
+
+        // Clean up test files
         if (f.exists()) f.delete();
+        if (pdfFile.exists()) pdfFile.delete();
     }
 
     private static void testPaymentLifecycleModule() {
