@@ -3,6 +3,8 @@
 # docker-entrypoint.sh - Container Startup for MOT Logistics
 # ============================================================
 set -e
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
 
 # Graceful shutdown handler
 cleanup() {
@@ -121,7 +123,7 @@ if [ ! -f "/app/app.jar" ] || [ ! -d "/app/out/com" ]; then
 fi
 
 # Run the Java Swing Application with memory bounds suitable for cloud free-tiers
-JAVA_OPTS="${JAVA_OPTS:--Xms64m -Xmx192m}"
+JAVA_OPTS="${JAVA_OPTS:--Xms64m -Xmx192m -Dfile.encoding=UTF-8}"
 while true; do
     echo "Starting MOT Logistics Java Application..."
     java $JAVA_OPTS -cp "/app/app.jar:/app/out:/app/lib/*" com.transport.Main || true

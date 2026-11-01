@@ -4,8 +4,11 @@
 # ============================================================
 FROM debian:bookworm-slim
 
-# Prevent interactive prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
+# Prevent interactive prompts and force UTF-8 encoding across JVM and shell
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8"
 
 # Install dependencies:
 # - OpenJDK 17 JDK for compiling & running Java Swing

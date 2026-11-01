@@ -19,11 +19,12 @@ if [ ! -f "lib/mysql-connector-j.jar" ]; then
     echo ""
 fi
 
-# Compile all Java source files (excluding standalone tests)
+# Compile all Java source files (excluding standalone tests) with UTF-8 encoding
 echo "Compiling Java source files..."
 find src -name "*.java" -not -path "*/test/*" > sources.txt
 
-javac -cp "lib/*:src" \
+javac -encoding UTF-8 \
+      -cp "lib/*:src" \
       -d out \
       @sources.txt
 
