@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: mot-logistics
+    runtime: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: RESOLUTION
+        value: 1366x768x24
+      - key: GUI_MODE
+        value: web

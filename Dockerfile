@@ -37,10 +37,9 @@ RUN if [ -d /usr/share/novnc ]; then \
         echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=\x27vnc.html?autoconnect=true&resize=scale&title=MOT%20Logistics%20System\x27"><title>MOT Logistics</title></head><body>Redirecting to <a href="vnc.html?autoconnect=true&resize=scale&title=MOT%20Logistics%20System">MOT Logistics System</a>...</body></html>' > /usr/share/novnc/index.html; \
     fi
 
-# Configure MariaDB networking (allow host connections on 0.0.0.0)
-RUN if [ -f /etc/mysql/mariadb.conf.d/50-server.cnf ]; then \
-        sed -i 's/^bind-address\s*=.*/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf; \
-    fi
+# Configure MariaDB for low-memory footprint and 0.0.0.0 binding (ideal for 512MB free tiers like Render)
+RUN mkdir -p /etc/mysql/conf.d && \
+    printf "[mysqld]\nbind-address = 0.0.0.0\nperformance_schema = off\ninnodb_buffer_pool_size = 16M\ninnodb_log_buffer_size = 2M\nkey_buffer_size = 8M\nmax_connections = 25\n" > /etc/mysql/conf.d/lean.cnf
 
 # Set working directory
 WORKDIR /app

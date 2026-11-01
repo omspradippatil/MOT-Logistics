@@ -84,15 +84,16 @@ else
     # Start x11vnc server (port 5900)
     x11vnc -display :1 -nopw -listen 0.0.0.0 -xkb -forever -shared -bg >/dev/null 2>&1
 
-    # Start websockify / noVNC web server (port 6080)
-    websockify --web=/usr/share/novnc 6080 127.0.0.1:5900 >/dev/null 2>&1 &
+    # Start websockify / noVNC web server (reads $PORT from Render, defaults to 6080)
+    WEB_PORT="${PORT:-6080}"
+    websockify --web=/usr/share/novnc "$WEB_PORT" 127.0.0.1:5900 >/dev/null 2>&1 &
 fi
 
 echo ""
 echo "============================================================"
 echo "  ✅ MOT Logistics System is ready to use!"
 echo "============================================================"
-echo "  🌐 Web Browser UI : http://localhost:6080"
+echo "  🌐 Web Browser UI : http://localhost:${PORT:-6080}"
 echo "  🗄️ MySQL Database  : port 3306 (user: root, no password)"
 echo "  🖥️ Native VNC Port : 5900"
 echo "============================================================"
@@ -110,10 +111,11 @@ if [ ! -d "/app/out/com" ]; then
     ./build.sh
 fi
 
-# Run the Java Swing Application in an auto-recovery loop
+# Run the Java Swing Application with memory bounds suitable for cloud free-tiers
+JAVA_OPTS="${JAVA_OPTS:--Xms64m -Xmx192m}"
 while true; do
     echo "Starting MOT Logistics Java Application..."
-    java -cp "out:lib/*" com.transport.Main || true
+    java $JAVA_OPTS -cp "out:lib/*" com.transport.Main || true
     echo "Application exited. Relaunching in 2 seconds (stop the container to exit)..."
     sleep 2
 done
