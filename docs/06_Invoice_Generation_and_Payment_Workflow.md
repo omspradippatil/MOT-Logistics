@@ -59,8 +59,8 @@ When exported via [`InvoiceGenerator.java`](file:///Users/om/Desktop/Projects/MO
 
 ```text
 ============================================================
-              SBP KUBRE TEMPO SERVICE
-               TRANSPORT SERVICE INVOICE
+                      MOT LOGISTICS
+           TRANSPORT TRIP & INVOICE MANAGEMENT SYSTEM
 ============================================================
 
 Invoice Number  : INV-0001
@@ -84,7 +84,7 @@ Sr.No  Date         Source             Destination          Amount (Rs.)
 ============================================================
 
   Authorized Signatory                  Company Signatory
-  (SBP Kubre Tempo Service)
+  (MOT Logistics)
 
   _______________________          _______________________
   Signature & Stamp                Signature & Stamp

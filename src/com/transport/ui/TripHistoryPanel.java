@@ -14,37 +14,25 @@ import java.text.SimpleDateFormat;
 import java.util.List;
 
 /**
- * TripHistoryPanel.java - View Trip Records
- *
- * Admin sees ALL trips.
- * Driver sees ONLY their own trips.
- *
- * Has filter options to search by:
- * - Driver
- * - Company
- * - Month / Year
- *
- * KEY CONCEPT: The same panel works for BOTH admin and driver.
- * The boolean 'isAdmin' controls what data is shown.
- * This is an example of REUSABILITY.
+ * TripHistoryPanel.java - Trip Audit Ledger & Filter Engine
  */
 public class TripHistoryPanel extends JPanel {
 
     private boolean isAdmin;
-    private int     driverId;   // -1 means show all (admin)
+    private int     driverId;
 
     private JTable            table;
     private DefaultTableModel tableModel;
 
-    // Filter fields
     private JComboBox<Driver>  driverFilterCombo;
     private JComboBox<Company> companyFilterCombo;
     private JComboBox<String>  monthFilterCombo;
     private JComboBox<String>  yearFilterCombo;
 
-    private JButton searchBtn;
-    private JButton clearFilterBtn;
-    private JButton deleteBtn;   // Admin only
+    private ModernButton searchBtn;
+    private ModernButton clearFilterBtn;
+    private ModernButton deleteBtn;
+    private JLabel       totalSummaryLabel;
 
     private TripDAO    tripDAO    = new TripDAO();
     private CompanyDAO companyDAO = new CompanyDAO();
@@ -52,78 +40,76 @@ public class TripHistoryPanel extends JPanel {
 
     private int selectedTripId = -1;
 
-    private static final String[] MONTHS = {"All", "January","February","March","April","May","June","July","August","September","October","November","December"};
+    private static final String[] MONTHS = {"All Months", "January","February","March","April","May","June","July","August","September","October","November","December"};
 
-    /**
-     * Constructor
-     * @param isAdmin - true if admin, false if driver
-     * @param driverId - the logged-in driver's ID (-1 for admin)
-     */
     public TripHistoryPanel(boolean isAdmin, int driverId) {
         this.isAdmin  = isAdmin;
         this.driverId = driverId;
-        setLayout(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        setBackground(Color.WHITE);
+        setLayout(new BorderLayout(12, 12));
+        setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        setBackground(UITheme.BG_LIGHT);
+
         initUI();
         loadTrips();
     }
 
     private void initUI() {
-        // Filter bar at top
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        filterPanel.setBorder(BorderFactory.createTitledBorder("Search / Filter"));
-        filterPanel.setBackground(Color.WHITE);
+        // Filter Toolbar
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 8));
+        filterPanel.setBorder(UITheme.createCardBorder("Filter Trip Records"));
+        filterPanel.setBackground(UITheme.CARD_BG);
 
-        // Month filter
         filterPanel.add(new JLabel("Month:"));
         monthFilterCombo = new JComboBox<>(MONTHS);
-        monthFilterCombo.setPreferredSize(new Dimension(100, 25));
+        monthFilterCombo.setFont(UITheme.FONT_BODY);
+        monthFilterCombo.setPreferredSize(new Dimension(130, 32));
         filterPanel.add(monthFilterCombo);
 
-        // Year filter
         filterPanel.add(new JLabel("Year:"));
-        String[] years = {"All", "2024", "2025", "2026", "2027"};
+        String[] years = {"All Years", "2024", "2025", "2026", "2027"};
         yearFilterCombo = new JComboBox<>(years);
         yearFilterCombo.setSelectedItem("2026");
-        yearFilterCombo.setPreferredSize(new Dimension(70, 25));
+        yearFilterCombo.setFont(UITheme.FONT_BODY);
+        yearFilterCombo.setPreferredSize(new Dimension(100, 32));
         filterPanel.add(yearFilterCombo);
 
-        // Admin-only filters: driver and company
         if (isAdmin) {
             filterPanel.add(new JLabel("Driver:"));
             driverFilterCombo = new JComboBox<>();
-            driverFilterCombo.addItem(new Driver()); // "All" placeholder
-            driverFilterCombo.getModel().getElementAt(0).setDriverName("All Drivers");
+            driverFilterCombo.setFont(UITheme.FONT_BODY);
+            driverFilterCombo.setPreferredSize(new Dimension(140, 32));
+            Driver allDrivers = new Driver();
+            allDrivers.setId(-1);
+            allDrivers.setDriverName("-- All Drivers --");
+            driverFilterCombo.addItem(allDrivers);
             for (Driver d : driverDAO.getAllDrivers()) driverFilterCombo.addItem(d);
-            driverFilterCombo.setPreferredSize(new Dimension(130, 25));
             filterPanel.add(driverFilterCombo);
 
             filterPanel.add(new JLabel("Company:"));
             companyFilterCombo = new JComboBox<>();
-            companyFilterCombo.addItem(new Company()); // "All" placeholder
-            companyFilterCombo.getModel().getElementAt(0).setCompanyName("All Companies");
+            companyFilterCombo.setFont(UITheme.FONT_BODY);
+            companyFilterCombo.setPreferredSize(new Dimension(140, 32));
+            Company allComps = new Company();
+            allComps.setId(-1);
+            allComps.setCompanyName("-- All Companies --");
+            companyFilterCombo.addItem(allComps);
             for (Company c : companyDAO.getAllCompanies()) companyFilterCombo.addItem(c);
-            companyFilterCombo.setPreferredSize(new Dimension(130, 25));
             filterPanel.add(companyFilterCombo);
         }
 
-        searchBtn      = createButton("Search",       new Color(0, 100, 180));
-        clearFilterBtn = createButton("Show All",     Color.DARK_GRAY);
+        searchBtn      = new ModernButton("🔍 Search", UITheme.BRAND_BLUE);
+        clearFilterBtn = new ModernButton("↺ Reset", UITheme.SECONDARY_GRAY);
+
         filterPanel.add(searchBtn);
         filterPanel.add(clearFilterBtn);
 
         // Table
-        String[] cols = {"ID", "Trip Code", "Date", "Company", "Driver", "Vehicle", "From", "To", "Amount (Rs.)"};
+        String[] cols = {"ID", "Trip Code", "Date", "Company", "Driver", "Vehicle No.", "From", "To", "Amount (₹)"};
         tableModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         table = new JTable(tableModel);
-        table.setRowHeight(25);
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.getTableHeader().setBackground(new Color(0, 70, 130));
-        table.getTableHeader().setForeground(Color.WHITE);
-        table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
+        UITheme.styleTable(table);
 
         table.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && table.getSelectedRow() >= 0) {
@@ -132,17 +118,20 @@ public class TripHistoryPanel extends JPanel {
         });
 
         JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(UITheme.createCardBorder("Completed Trip Records"));
 
-        // Bottom: total amount label + delete button (admin only)
+        // Bottom Summary Bar
         JPanel bottomPanel = new JPanel(new BorderLayout());
-        bottomPanel.setBackground(Color.WHITE);
+        bottomPanel.setOpaque(false);
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(8, 5, 5, 5));
 
-        JLabel totalLabel = new JLabel("  Select filters and click Search.");
-        totalLabel.setFont(new Font("Arial", Font.ITALIC, 12));
-        bottomPanel.add(totalLabel, BorderLayout.WEST);
+        totalSummaryLabel = new JLabel("Total Trips: 0 | Total Amount: ₹ 0.00");
+        totalSummaryLabel.setFont(UITheme.FONT_HEADER);
+        totalSummaryLabel.setForeground(UITheme.BRAND_BLUE);
+        bottomPanel.add(totalSummaryLabel, BorderLayout.WEST);
 
         if (isAdmin) {
-            deleteBtn = createButton("Delete Selected Trip", new Color(200, 50, 50));
+            deleteBtn = new ModernButton("🗑 Delete Selected Trip", UITheme.DANGER_RED);
             deleteBtn.addActionListener(e -> deleteTrip());
             bottomPanel.add(deleteBtn, BorderLayout.EAST);
         }
@@ -155,17 +144,15 @@ public class TripHistoryPanel extends JPanel {
         add(bottomPanel,  BorderLayout.SOUTH);
     }
 
-    /** Load trips based on current filter selections */
     private void loadTrips() {
         tableModel.setRowCount(0);
         selectedTripId = -1;
 
-        int filterDriver  = driverId > 0 ? driverId : -1; // Driver-mode uses their ID
+        int filterDriver  = driverId > 0 ? driverId : -1;
         int filterCompany = -1;
         int filterMonth   = -1;
         int filterYear    = -1;
 
-        // Read filter values (admin only)
         if (isAdmin && driverFilterCombo != null) {
             Driver selectedDriver = (Driver) driverFilterCombo.getSelectedItem();
             if (selectedDriver != null && selectedDriver.getId() > 0) filterDriver = selectedDriver.getId();
@@ -176,13 +163,11 @@ public class TripHistoryPanel extends JPanel {
             if (selectedCompany != null && selectedCompany.getId() > 0) filterCompany = selectedCompany.getId();
         }
 
-        // Month
         int monthIndex = monthFilterCombo.getSelectedIndex();
-        if (monthIndex > 0) filterMonth = monthIndex; // index 1 = January = month 1
+        if (monthIndex > 0) filterMonth = monthIndex;
 
-        // Year
         String yearStr = (String) yearFilterCombo.getSelectedItem();
-        if (!"All".equals(yearStr)) {
+        if (!"All Years".equals(yearStr)) {
             try { filterYear = Integer.parseInt(yearStr); } catch (Exception ignored) {}
         }
 
@@ -200,20 +185,22 @@ public class TripHistoryPanel extends JPanel {
                 String.format("%.2f", t.getAmount())
             });
         }
+
+        totalSummaryLabel.setText(String.format("Showing %d Trips  |  Total Revenue: ₹ %,.2f", trips.size(), total));
     }
 
     private void deleteTrip() {
         if (selectedTripId == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a trip to delete!", "Info", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select a trip row to delete!", "Select Trip", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        int confirm = JOptionPane.showConfirmDialog(this, "Delete this trip record?", "Confirm", JOptionPane.YES_NO_OPTION);
+        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to permanently delete this trip entry?", "Confirm Delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (confirm == JOptionPane.YES_OPTION) {
             if (tripDAO.deleteTrip(selectedTripId)) {
-                JOptionPane.showMessageDialog(this, "Trip deleted!");
+                JOptionPane.showMessageDialog(this, "Trip record deleted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
                 loadTrips();
             } else {
-                JOptionPane.showMessageDialog(this, "Failed to delete trip!", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Failed to delete trip record!", "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
@@ -223,14 +210,5 @@ public class TripHistoryPanel extends JPanel {
         yearFilterCombo.setSelectedItem("2026");
         if (driverFilterCombo != null)  driverFilterCombo.setSelectedIndex(0);
         if (companyFilterCombo != null) companyFilterCombo.setSelectedIndex(0);
-    }
-
-    private JButton createButton(String text, Color color) {
-        JButton btn = new JButton(text);
-        btn.setBackground(color);
-        btn.setForeground(Color.WHITE);
-        btn.setFont(new Font("Arial", Font.BOLD, 12));
-        btn.setFocusPainted(false);
-        return btn;
     }
 }

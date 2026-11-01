@@ -2,6 +2,7 @@ package com.transport.ui;
 
 import com.transport.dao.PaymentDAO;
 import com.transport.model.Payment;
+import com.transport.util.Validation;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -9,29 +10,22 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 
 /**
- * PaymentPanel.java - Manage Payments
- *
- * Admin can:
- * - View all payment records
- * - Update payment status (Pending -> Paid / Partially Paid)
- * - Track how much is received and how much is remaining
+ * PaymentPanel.java - Accounts Receivable & Payment Lifecycle Management
  */
 public class PaymentPanel extends JPanel {
 
     private JTable            table;
     private DefaultTableModel tableModel;
 
-    // Edit fields
-    private JTextField amountReceivedField;
+    private JTextField        amountReceivedField;
     private JComboBox<String> statusCombo;
-    private JTextField paymentDateField;
-    private JTextField notesField;
+    private JTextField        paymentDateField;
+    private JTextField        notesField;
 
-    private JButton updateBtn;
-    private JButton refreshBtn;
+    private ModernButton updateBtn;
+    private ModernButton refreshBtn;
 
     private PaymentDAO paymentDAO = new PaymentDAO();
     private int selectedPaymentId = -1;
@@ -40,20 +34,21 @@ public class PaymentPanel extends JPanel {
     private static final String[] STATUS_OPTIONS = {"Pending", "Partially Paid", "Paid"};
 
     public PaymentPanel() {
-        setLayout(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        setBackground(Color.WHITE);
+        setLayout(new BorderLayout(12, 12));
+        setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        setBackground(UITheme.BG_LIGHT);
+
         initUI();
         loadPayments();
     }
 
     private void initUI() {
-        // Update form at top
+        // Form Panel
         JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBorder(BorderFactory.createTitledBorder("Update Payment"));
-        formPanel.setBackground(Color.WHITE);
+        formPanel.setBackground(UITheme.CARD_BG);
+        formPanel.setBorder(UITheme.createCardBorder("Update Invoice Payment Record"));
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(6, 8, 6, 8);
+        gbc.insets = new Insets(6, 10, 6, 10);
         gbc.fill   = GridBagConstraints.HORIZONTAL;
 
         amountReceivedField = new JTextField(12);
@@ -61,44 +56,44 @@ public class PaymentPanel extends JPanel {
         paymentDateField    = new JTextField(new SimpleDateFormat("dd/MM/yyyy").format(new Date()), 12);
         notesField          = new JTextField(20);
 
-        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(new JLabel("Amount Received (Rs.):"), gbc);
+        styleField(amountReceivedField);
+        styleCombo(statusCombo);
+        styleField(paymentDateField);
+        styleField(notesField);
+
+        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(new JLabel("Amount Received (₹): *"), gbc);
         gbc.gridx = 1; formPanel.add(amountReceivedField, gbc);
-        gbc.gridx = 2; formPanel.add(new JLabel("Payment Date (dd/MM/yyyy):"), gbc);
+        gbc.gridx = 2; formPanel.add(new JLabel("Payment Date (dd/mm/yyyy):"), gbc);
         gbc.gridx = 3; formPanel.add(paymentDateField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(new JLabel("Payment Status:"), gbc);
+        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(new JLabel("Settlement Status: *"), gbc);
         gbc.gridx = 1; formPanel.add(statusCombo, gbc);
-        gbc.gridx = 2; formPanel.add(new JLabel("Notes:"), gbc);
+        gbc.gridx = 2; formPanel.add(new JLabel("Notes / Transaction Ref:"), gbc);
         gbc.gridx = 3; formPanel.add(notesField, gbc);
 
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
         btnPanel.setOpaque(false);
-        updateBtn  = createButton("Update Payment", new Color(0, 100, 180));
-        refreshBtn = createButton("Refresh",        Color.DARK_GRAY);
+        updateBtn  = new ModernButton("✓ Update Payment Status", UITheme.SUCCESS_GREEN);
+        refreshBtn = new ModernButton("↺ Refresh Records", UITheme.SECONDARY_GRAY);
         btnPanel.add(updateBtn);
         btnPanel.add(refreshBtn);
 
         gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 4;
         formPanel.add(btnPanel, gbc);
 
-        // Instructions
-        JLabel hintLabel = new JLabel("  Select a row from the table below to update payment.");
-        hintLabel.setForeground(new Color(100, 100, 100));
-        hintLabel.setFont(new Font("Arial", Font.ITALIC, 11));
+        JLabel hintLabel = new JLabel("  💡 Tip: Click any row in the ledger below to populate and update its payment status.");
+        hintLabel.setForeground(UITheme.TEXT_MUTED);
+        hintLabel.setFont(UITheme.FONT_SMALL);
 
         // Table
-        String[] cols = {"ID", "Invoice No.", "Company", "Total (Rs.)", "Received (Rs.)", "Remaining (Rs.)", "Payment Date", "Status"};
+        String[] cols = {"ID", "Invoice No.", "Client Company", "Total (₹)", "Received (₹)", "Remaining (₹)", "Payment Date", "Status"};
         tableModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         table = new JTable(tableModel);
-        table.setRowHeight(25);
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.getTableHeader().setBackground(new Color(0, 70, 130));
-        table.getTableHeader().setForeground(Color.WHITE);
-        table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
+        UITheme.styleTable(table);
 
-        // Color rows by status
+        // High contrast status badges
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object val, boolean sel, boolean focus, int row, int col) {
@@ -106,12 +101,18 @@ public class PaymentPanel extends JPanel {
                 if (!sel) {
                     String status = (String) tableModel.getValueAt(row, 7);
                     if ("Paid".equals(status)) {
-                        setBackground(new Color(220, 255, 220));
+                        setBackground(new Color(220, 252, 231)); // Soft Emerald
+                        setForeground(new Color(22, 101, 52));
                     } else if ("Partially Paid".equals(status)) {
-                        setBackground(new Color(255, 255, 200));
+                        setBackground(new Color(254, 243, 199)); // Soft Amber
+                        setForeground(new Color(146, 64, 14));
                     } else {
-                        setBackground(new Color(255, 230, 230)); // Pending
+                        setBackground(new Color(254, 226, 226)); // Soft Rose
+                        setForeground(new Color(153, 27, 27));
                     }
+                } else {
+                    setBackground(new Color(219, 234, 254));
+                    setForeground(UITheme.BRAND_NAVY);
                 }
                 return this;
             }
@@ -124,18 +125,28 @@ public class PaymentPanel extends JPanel {
         });
 
         JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(BorderFactory.createTitledBorder("All Payment Records"));
+        scrollPane.setBorder(UITheme.createCardBorder("Accounts Receivable Ledger"));
 
         updateBtn.addActionListener(e  -> updatePayment());
         refreshBtn.addActionListener(e -> loadPayments());
 
-        JPanel northPanel = new JPanel(new BorderLayout(0, 5));
+        JPanel northPanel = new JPanel(new BorderLayout(0, 6));
         northPanel.setOpaque(false);
         northPanel.add(formPanel,  BorderLayout.NORTH);
         northPanel.add(hintLabel,  BorderLayout.SOUTH);
 
-        add(northPanel,   BorderLayout.NORTH);
-        add(scrollPane,   BorderLayout.CENTER);
+        add(northPanel, BorderLayout.NORTH);
+        add(scrollPane, BorderLayout.CENTER);
+    }
+
+    private void styleField(JTextField field) {
+        field.setFont(UITheme.FONT_BODY);
+        field.setPreferredSize(new Dimension(170, 32));
+    }
+
+    private void styleCombo(JComboBox<?> combo) {
+        combo.setFont(UITheme.FONT_BODY);
+        combo.setPreferredSize(new Dimension(170, 32));
     }
 
     private void loadPayments() {
@@ -150,7 +161,7 @@ public class PaymentPanel extends JPanel {
                 String.format("%.2f", p.getTotalAmount()),
                 String.format("%.2f", p.getAmountReceived()),
                 String.format("%.2f", p.getRemainingAmount()),
-                p.getPaymentDate() != null ? sdf.format(p.getPaymentDate()) : "Not Paid",
+                p.getPaymentDate() != null ? sdf.format(p.getPaymentDate()) : "Unpaid",
                 p.getPaymentStatus()
             });
         }
@@ -163,33 +174,31 @@ public class PaymentPanel extends JPanel {
         amountReceivedField.setText((String) tableModel.getValueAt(row, 4));
         statusCombo.setSelectedItem(tableModel.getValueAt(row, 7));
         String dateVal = (String) tableModel.getValueAt(row, 6);
-        paymentDateField.setText("Not Paid".equals(dateVal) ? new SimpleDateFormat("dd/MM/yyyy").format(new Date()) : dateVal);
+        paymentDateField.setText("Unpaid".equals(dateVal) ? new SimpleDateFormat("dd/MM/yyyy").format(new Date()) : dateVal);
     }
 
     private void updatePayment() {
         if (selectedPaymentId == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a payment record!", "Info", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select an invoice payment row from the table first!", "Select Payment", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
-        double received;
-        try {
-            received = Double.parseDouble(amountReceivedField.getText().trim());
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Enter a valid received amount!", "Error", JOptionPane.ERROR_MESSAGE);
+        if (!Validation.isValidAmount(amountReceivedField.getText().trim()) && !"0".equals(amountReceivedField.getText().trim())) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid numeric received amount!", "Invalid Amount", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
+        double received = Double.parseDouble(amountReceivedField.getText().trim());
         double remaining = selectedTotalAmount - received;
+        if (remaining < 0) remaining = 0;
 
         Payment payment = new Payment();
         payment.setId(selectedPaymentId);
         payment.setAmountReceived(received);
-        payment.setRemainingAmount(remaining < 0 ? 0 : remaining);
+        payment.setRemainingAmount(remaining);
         payment.setPaymentStatus((String) statusCombo.getSelectedItem());
         payment.setNotes(notesField.getText().trim());
 
-        // Parse date
         try {
             Date pDate = new SimpleDateFormat("dd/MM/yyyy").parse(paymentDateField.getText().trim());
             payment.setPaymentDate(pDate);
@@ -198,19 +207,10 @@ public class PaymentPanel extends JPanel {
         }
 
         if (paymentDAO.updatePayment(payment)) {
-            JOptionPane.showMessageDialog(this, "Payment updated successfully!");
+            JOptionPane.showMessageDialog(this, "Payment record updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
             loadPayments();
         } else {
-            JOptionPane.showMessageDialog(this, "Failed to update payment!", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Failed to update payment record!", "Error", JOptionPane.ERROR_MESSAGE);
         }
-    }
-
-    private JButton createButton(String text, Color color) {
-        JButton btn = new JButton(text);
-        btn.setBackground(color);
-        btn.setForeground(Color.WHITE);
-        btn.setFont(new Font("Arial", Font.BOLD, 12));
-        btn.setFocusPainted(false);
-        return btn;
     }
 }

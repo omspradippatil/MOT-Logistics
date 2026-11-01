@@ -1,6 +1,6 @@
-# Transport Trip Management and Automated Invoice Generation System
+# MOT Logistics - Transport Trip Management & Automated Invoice Generation System
 
-A Core Java + Java Swing application for managing transport business trips and generating monthly invoices.
+A Core Java + Java Swing desktop application for managing transport fleet logistics, recording daily trips, and generating computerized monthly invoices.
 
 ## 🚀 Quick Start
 

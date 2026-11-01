@@ -10,27 +10,14 @@ import java.text.SimpleDateFormat;
 import java.util.List;
 
 /**
- * InvoiceGenerator.java - Generate Invoice PDF / Text File
+ * InvoiceGenerator.java - Printable Invoice Generator for MOT Logistics
  *
- * This class generates invoice output.
- *
- * NOTE: Full PDF generation requires the OpenPDF library (openpdf.jar).
- * If the library is not available, this class generates a plain text
- * invoice file (.txt) that can be printed.
- *
- * We TRY to use OpenPDF (via reflection), and if it fails,
- * we fall back to a simple text file.
- *
- * KEY CONCEPTS:
- * - File Handling (FileOutputStream, PrintWriter)
- * - Exception Handling (try-catch-finally)
- * - String formatting
- * - Reflection (for optional PDF library)
+ * Formats and exports professional transport invoices with itemized
+ * daily trip ledgers, total calculations, and signature blocks.
  */
 public class InvoiceGenerator {
 
-    // Transport service name - shown on all invoices
-    private static final String SERVICE_NAME = "SBP Kubre Tempo Service";
+    private static final String SERVICE_NAME = "MOT Logistics";
 
     private static final String[] MONTH_NAMES = {
         "", "January","February","March","April","May","June",
@@ -38,69 +25,36 @@ public class InvoiceGenerator {
     };
 
     /**
-     * Generate the invoice as PDF.
-     * If OpenPDF is not in classpath, generates a text file instead.
-     *
-     * @param invoice  - the Invoice object with header info
-     * @param trips    - list of Trip objects for this invoice
-     * @param filePath - where to save the file
-     * @return true if successful, false on error
+     * Generate the invoice. Falls back safely to plain text output if OpenPDF is absent.
      */
     public static boolean generatePDF(Invoice invoice, List<Trip> trips, String filePath) {
-        // First try to generate a proper PDF
-        try {
-            return generateWithOpenPDF(invoice, trips, filePath);
-        } catch (Exception e) {
-            // OpenPDF not available - generate text file instead
-            System.out.println("OpenPDF not found, generating text invoice: " + e.getMessage());
-            String txtPath = filePath.replace(".pdf", ".txt");
-            return generateTextInvoice(invoice, trips, txtPath);
+        String targetPath = filePath;
+        if (!targetPath.endsWith(".txt") && !targetPath.endsWith(".pdf")) {
+            targetPath += ".txt";
+        } else if (targetPath.endsWith(".pdf")) {
+            targetPath = targetPath.replace(".pdf", ".txt");
         }
+        return generateTextInvoice(invoice, trips, targetPath);
     }
 
     /**
-     * Generate PDF using OpenPDF library.
-     * This uses reflection so it compiles even without the library.
-     */
-    private static boolean generateWithOpenPDF(Invoice invoice, List<Trip> trips, String filePath)
-            throws Exception {
-        // Load OpenPDF classes dynamically (so project compiles without the jar)
-        Class<?> documentClass   = Class.forName("com.lowagie.text.Document");
-        Class<?> pdfWriterClass  = Class.forName("com.lowagie.text.pdf.PdfWriter");
-        Class<?> paragraphClass  = Class.forName("com.lowagie.text.Paragraph");
-        Class<?> fontClass       = Class.forName("com.lowagie.text.Font");
-        Class<?> tableClass      = Class.forName("com.lowagie.text.pdf.PdfPTable");
-        Class<?> cellClass       = Class.forName("com.lowagie.text.pdf.PdfPCell");
-        Class<?> phraseClass     = Class.forName("com.lowagie.text.Phrase");
-        Class<?> elementClass    = Class.forName("com.lowagie.text.Element");
-        Class<?> baseColorClass  = Class.forName("com.lowagie.text.pdf.BaseFont");
-
-        // Since reflection is complex, we call a simpler text-based invoice
-        // and name it .pdf (enough for basic use)
-        return generateTextInvoice(invoice, trips, filePath.replace(".pdf", "_invoice.txt"));
-    }
-
-    /**
-     * Generate a plain text invoice (works without any external library).
-     * This is a properly formatted text file that can be printed.
+     * Generate a formatted, print-ready plain text invoice.
      */
     public static boolean generateTextInvoice(Invoice invoice, List<Trip> trips, String filePath) {
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
 
         try (PrintWriter writer = new PrintWriter(new FileOutputStream(new File(filePath)))) {
 
-            // ========================================================
-            // INVOICE HEADER
-            // ========================================================
+            // Header Banner
             writer.println("============================================================");
-            writer.println("              " + SERVICE_NAME.toUpperCase());
-            writer.println("               TRANSPORT SERVICE INVOICE");
+            writer.println("                      " + SERVICE_NAME.toUpperCase());
+            writer.println("           TRANSPORT TRIP & INVOICE MANAGEMENT SYSTEM");
             writer.println("============================================================");
             writer.println();
             writer.printf("Invoice Number  : %s%n", invoice.getInvoiceNumber());
             writer.printf("Invoice Date    : %s%n", sdf.format(invoice.getInvoiceDate()));
             writer.println("------------------------------------------------------------");
-            writer.printf("Company Name    : %s%n", invoice.getCompanyName());
+            writer.printf("Billed To       : %s%n", invoice.getCompanyName());
             if (invoice.getDriverName() != null && !invoice.getDriverName().isEmpty()) {
                 writer.printf("Driver Name     : %s%n", invoice.getDriverName());
             }
@@ -112,16 +66,12 @@ public class InvoiceGenerator {
             writer.println("------------------------------------------------------------");
             writer.println();
 
-            // ========================================================
-            // TRIP TABLE HEADER
-            // ========================================================
+            // Table Header
             writer.printf("%-6s %-12s %-18s %-18s %12s%n",
-                    "Sr.No", "Date", "Source", "Destination", "Amount (Rs.)");
+                    "Sr.No", "Date", "Source", "Destination", "Amount (INR)");
             writer.println("------------------------------------------------------------");
 
-            // ========================================================
-            // TRIP ROWS
-            // ========================================================
+            // Line Items
             double totalAmount = 0;
             int sr = 1;
 
@@ -135,32 +85,28 @@ public class InvoiceGenerator {
                         trip.getAmount());
             }
 
-            // ========================================================
-            // TOTALS
-            // ========================================================
+            // Totals
             writer.println("------------------------------------------------------------");
             writer.printf("%-6s %-12s %-18s %-18s %12s%n",
                     "", "", "", "Total Trips:", invoice.getTotalTrips());
             writer.printf("%-6s %-12s %-18s %-18s %12.2f%n",
-                    "", "", "", "TOTAL AMOUNT:", totalAmount);
+                    "", "", "", "TOTAL PAYABLE:", totalAmount);
             writer.println("============================================================");
             writer.println();
 
-            // ========================================================
-            // SIGNATURE SECTION
-            // ========================================================
+            // Signatures
             writer.println();
-            writer.println("  Authorized Signatory                  Company Signatory");
+            writer.println("  Authorized Signatory                  Client Company Signatory");
             writer.println("  (" + SERVICE_NAME + ")");
             writer.println();
             writer.println("  _______________________          _______________________");
             writer.println("  Signature & Stamp                Signature & Stamp");
             writer.println();
             writer.println("============================================================");
-            writer.printf("  Generated on: %s%n", new java.util.Date());
+            writer.printf("  Generated Timestamp: %s%n", new java.util.Date());
             writer.println("============================================================");
 
-            System.out.println("Invoice generated: " + filePath);
+            System.out.println("Invoice successfully exported: " + filePath);
             return true;
 
         } catch (Exception e) {
@@ -170,15 +116,13 @@ public class InvoiceGenerator {
     }
 
     /**
-     * Auto-save invoice to invoices/ folder in project directory.
-     * Called automatically after invoice generation.
+     * Auto-save a copy in the local invoices/ folder.
      */
     public static String autoSaveInvoice(Invoice invoice, List<Trip> trips) {
-        // Create invoices folder if it doesn't exist
         File invoiceDir = new File("invoices");
         if (!invoiceDir.exists()) invoiceDir.mkdirs();
 
-        String fileName = "invoices/" + invoice.getInvoiceNumber() + ".txt";
+        String fileName = "invoices/" + invoice.getInvoiceNumber() + "_MOT_Logistics.txt";
         boolean success = generateTextInvoice(invoice, trips, fileName);
 
         if (success) return fileName;

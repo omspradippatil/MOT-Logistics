@@ -6,63 +6,46 @@ import com.transport.ui.LoginFrame;
 import javax.swing.*;
 
 /**
- * Main.java - Application Entry Point
- *
- * This is where the program starts.
- * The main() method is the STARTING POINT of every Java application.
- *
- * What this does:
- * 1. Tests the database connection
- * 2. Sets the UI look and feel
- * 3. Opens the Login window
- *
- * KEY CONCEPTS:
- * - main() method (program entry point)
- * - SwingUtilities.invokeLater() (ensures UI runs on the right thread)
- * - UIManager (changes the look of Swing components)
+ * Main.java - Application Entry Point for MOT Logistics
  */
 public class Main {
 
     public static void main(String[] args) {
 
-        System.out.println("==============================================");
-        System.out.println("  SBP Kubre Tempo Service - Starting App...  ");
-        System.out.println("==============================================");
+        System.out.println("====================================================");
+        System.out.println("     MOT LOGISTICS - Starting Desktop System...     ");
+        System.out.println("====================================================");
 
-        // Step 1: Test database connection
-        System.out.print("Testing database connection... ");
+        // Pre-flight database connectivity check
+        System.out.print("Connecting to MySQL Database 'transport_db'... ");
         if (DatabaseConnection.testConnection()) {
-            System.out.println("SUCCESS!");
+            System.out.println("ONLINE & READY!");
         } else {
-            System.out.println("FAILED!");
+            System.out.println("OFFLINE / FAILED!");
             JOptionPane.showMessageDialog(null,
-                "Cannot connect to MySQL database!\n\n" +
-                "Please check:\n" +
-                "1. MySQL is running\n" +
-                "2. Database 'transport_db' exists (run database/schema.sql)\n" +
-                "3. Password in DatabaseConnection.java is correct\n" +
-                "4. mysql-connector-j.jar is in the lib/ folder",
-                "Database Connection Error",
+                "Unable to connect to MySQL database 'transport_db'!\n\n" +
+                "Troubleshooting Steps:\n" +
+                "1. Confirm MySQL server is running (e.g. brew services start mysql)\n" +
+                "2. Ensure database 'transport_db' is imported (mysql -u root < database/schema.sql)\n" +
+                "3. Check password in DatabaseConnection.java (default is blank)\n" +
+                "4. Verify lib/mysql-connector-j.jar is present",
+                "MOT Logistics - Database Error",
                 JOptionPane.ERROR_MESSAGE);
-            System.exit(1); // Stop the app
+            System.exit(1);
         }
 
-        // Step 2: Set a clean look and feel for Swing UI
+        // Apply clean Look and Feel
         try {
-            // Use the system's native look (looks like a real Windows/Mac/Linux app)
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception e) {
-            // If it fails, use default Swing look - not critical
-            System.out.println("Could not set system look and feel: " + e.getMessage());
+            System.out.println("Using default Swing Look and Feel: " + e.getMessage());
         }
 
-        // Step 3: Open the Login window
-        // SwingUtilities.invokeLater ensures UI is created on the Event Dispatch Thread
-        // This is the CORRECT way to start a Swing application
+        // Launch UI on Event Dispatch Thread
         SwingUtilities.invokeLater(() -> {
             LoginFrame loginFrame = new LoginFrame();
             loginFrame.setVisible(true);
-            System.out.println("Login window opened. Application is running.");
+            System.out.println("MOT Logistics UI successfully initialized.");
         });
     }
 }
