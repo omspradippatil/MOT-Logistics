@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * VehiclePanel.java - Commercial Fleet Directory & Driver Assignments
  */
-public class VehiclePanel extends JPanel {
+public class VehiclePanel extends JPanel implements Refreshable {
 
     private JTable            table;
     private DefaultTableModel tableModel;
@@ -131,6 +131,11 @@ public class VehiclePanel extends JPanel {
         for (Driver d : drivers) {
             driverCombo.addItem(d);
         }
+    }
+
+    @Override
+    public void refreshData() {
+        loadVehicles();
     }
 
     private void loadVehicles() {

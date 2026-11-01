@@ -74,8 +74,14 @@ public class AdminDashboard extends JFrame {
         tabs.addTab("  💰 Payments  ",    new PaymentPanel());
 
         tabs.addChangeListener(e -> {
-            if (tabs.getSelectedIndex() == 0) {
+            int selectedIndex = tabs.getSelectedIndex();
+            if (selectedIndex == 0) {
                 tabs.setComponentAt(0, createDashboardPanel());
+            } else {
+                Component comp = tabs.getComponentAt(selectedIndex);
+                if (comp instanceof Refreshable) {
+                    ((Refreshable) comp).refreshData();
+                }
             }
         });
 

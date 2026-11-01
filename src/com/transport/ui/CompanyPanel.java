@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * CompanyPanel.java - Corporate Client Directory
  */
-public class CompanyPanel extends JPanel {
+public class CompanyPanel extends JPanel implements Refreshable {
 
     private JTable            table;
     private DefaultTableModel tableModel;
@@ -115,6 +115,11 @@ public class CompanyPanel extends JPanel {
     private void styleField(JTextField field) {
         field.setFont(UITheme.FONT_BODY);
         field.setPreferredSize(new Dimension(180, 32));
+    }
+
+    @Override
+    public void refreshData() {
+        loadCompanies();
     }
 
     private void loadCompanies() {

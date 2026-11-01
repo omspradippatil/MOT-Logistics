@@ -59,6 +59,13 @@ public class DriverDashboard extends JFrame {
         tabs.addTab("  ➕ New Trip Entry  ", new TripEntryPanel(driver));
         tabs.addTab("  📋 My Trip History  ", new TripHistoryPanel(false, driver.getId()));
 
+        tabs.addChangeListener(e -> {
+            Component comp = tabs.getSelectedComponent();
+            if (comp instanceof Refreshable) {
+                ((Refreshable) comp).refreshData();
+            }
+        });
+
         add(headerPanel, BorderLayout.NORTH);
         add(tabs, BorderLayout.CENTER);
     }

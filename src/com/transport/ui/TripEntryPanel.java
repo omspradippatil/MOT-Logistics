@@ -20,7 +20,7 @@ import java.util.List;
  * Designed with high visibility, large prominent action buttons,
  * and intuitive auto-filling for quick entry by transport drivers.
  */
-public class TripEntryPanel extends JPanel {
+public class TripEntryPanel extends JPanel implements Refreshable {
 
     private JTextField         tripCodeField;
     private JSpinner           dateSpinner;
@@ -135,6 +135,36 @@ public class TripEntryPanel extends JPanel {
 
         add(new JScrollPane(wrapper), BorderLayout.CENTER);
         add(btnPanel, BorderLayout.SOUTH);
+    }
+
+    @Override
+    public void refreshData() {
+        // Refresh companies dropdown
+        Company selectedComp = (Company) companyCombo.getSelectedItem();
+        companyCombo.removeAllItems();
+        List<Company> companies = companyDAO.getAllCompanies();
+        for (Company c : companies) {
+            companyCombo.addItem(c);
+            if (selectedComp != null && c.getId() == selectedComp.getId()) {
+                companyCombo.setSelectedItem(c);
+            }
+        }
+
+        // Refresh vehicles assigned to this driver
+        Vehicle selectedVeh = (Vehicle) vehicleCombo.getSelectedItem();
+        vehicleCombo.removeAllItems();
+        List<Vehicle> vehicles = vehicleDAO.getVehiclesByDriver(loggedInDriver.getId());
+        for (Vehicle v : vehicles) {
+            vehicleCombo.addItem(v);
+            if (selectedVeh != null && v.getId() == selectedVeh.getId()) {
+                vehicleCombo.setSelectedItem(v);
+            }
+        }
+
+        // Generate fresh trip code if current is empty or default
+        if (tripCodeField.getText().trim().isEmpty()) {
+            tripCodeField.setText(tripDAO.generateTripCode());
+        }
     }
 
     private void styleInputField(JTextField field) {

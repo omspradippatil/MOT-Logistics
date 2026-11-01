@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * InvoicePanel.java - Automated Monthly Invoice Engine for MOT Logistics
  */
-public class InvoicePanel extends JPanel {
+public class InvoicePanel extends JPanel implements Refreshable {
 
     private JComboBox<Company> companyCombo;
     private JComboBox<Driver>  driverCombo;
@@ -176,6 +176,47 @@ public class InvoicePanel extends JPanel {
     private void styleCombo(JComboBox<?> combo) {
         combo.setFont(UITheme.FONT_BODY);
         combo.setPreferredSize(new Dimension(180, 32));
+    }
+
+    @Override
+    public void refreshData() {
+        // Refresh companies dropdown
+        Company selectedComp = (Company) companyCombo.getSelectedItem();
+        companyCombo.removeAllItems();
+        for (Company c : companyDAO.getAllCompanies()) {
+            companyCombo.addItem(c);
+            if (selectedComp != null && c.getId() == selectedComp.getId()) {
+                companyCombo.setSelectedItem(c);
+            }
+        }
+
+        // Refresh drivers dropdown
+        Driver selectedDriver = (Driver) driverCombo.getSelectedItem();
+        driverCombo.removeAllItems();
+        Driver allDrivers = new Driver();
+        allDrivers.setDriverName("-- All Drivers --");
+        allDrivers.setId(-1);
+        driverCombo.addItem(allDrivers);
+        for (Driver d : driverDAO.getActiveDrivers()) {
+            driverCombo.addItem(d);
+            if (selectedDriver != null && d.getId() == selectedDriver.getId()) {
+                driverCombo.setSelectedItem(d);
+            }
+        }
+
+        // Refresh vehicles dropdown
+        Vehicle selectedVeh = (Vehicle) vehicleCombo.getSelectedItem();
+        vehicleCombo.removeAllItems();
+        Vehicle allVehicles = new Vehicle();
+        allVehicles.setRegistrationNumber("-- All Vehicles --");
+        allVehicles.setId(-1);
+        vehicleCombo.addItem(allVehicles);
+        for (Vehicle v : vehicleDAO.getAllVehicles()) {
+            vehicleCombo.addItem(v);
+            if (selectedVeh != null && v.getId() == selectedVeh.getId()) {
+                vehicleCombo.setSelectedItem(v);
+            }
+        }
     }
 
     private void generateInvoice() {

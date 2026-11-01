@@ -14,7 +14,7 @@ import java.util.Date;
 /**
  * PaymentPanel.java - Accounts Receivable & Payment Lifecycle Management
  */
-public class PaymentPanel extends JPanel {
+public class PaymentPanel extends JPanel implements Refreshable {
 
     private JTable            table;
     private DefaultTableModel tableModel;
@@ -147,6 +147,11 @@ public class PaymentPanel extends JPanel {
     private void styleCombo(JComboBox<?> combo) {
         combo.setFont(UITheme.FONT_BODY);
         combo.setPreferredSize(new Dimension(170, 32));
+    }
+
+    @Override
+    public void refreshData() {
+        loadPayments();
     }
 
     private void loadPayments() {

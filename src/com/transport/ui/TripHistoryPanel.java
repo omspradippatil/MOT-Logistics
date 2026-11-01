@@ -16,7 +16,7 @@ import java.util.List;
 /**
  * TripHistoryPanel.java - Trip Audit Ledger & Filter Engine
  */
-public class TripHistoryPanel extends JPanel {
+public class TripHistoryPanel extends JPanel implements Refreshable {
 
     private boolean isAdmin;
     private int     driverId;
@@ -142,6 +142,41 @@ public class TripHistoryPanel extends JPanel {
         add(filterPanel,  BorderLayout.NORTH);
         add(scrollPane,   BorderLayout.CENTER);
         add(bottomPanel,  BorderLayout.SOUTH);
+    }
+
+    @Override
+    public void refreshData() {
+        if (isAdmin && driverFilterCombo != null) {
+            Driver selectedDriver = (Driver) driverFilterCombo.getSelectedItem();
+            driverFilterCombo.removeAllItems();
+            Driver allDrivers = new Driver();
+            allDrivers.setId(-1);
+            allDrivers.setDriverName("-- All Drivers --");
+            driverFilterCombo.addItem(allDrivers);
+            for (Driver d : driverDAO.getAllDrivers()) {
+                driverFilterCombo.addItem(d);
+                if (selectedDriver != null && d.getId() == selectedDriver.getId()) {
+                    driverFilterCombo.setSelectedItem(d);
+                }
+            }
+        }
+
+        if (isAdmin && companyFilterCombo != null) {
+            Company selectedComp = (Company) companyFilterCombo.getSelectedItem();
+            companyFilterCombo.removeAllItems();
+            Company allComps = new Company();
+            allComps.setId(-1);
+            allComps.setCompanyName("-- All Companies --");
+            companyFilterCombo.addItem(allComps);
+            for (Company c : companyDAO.getAllCompanies()) {
+                companyFilterCombo.addItem(c);
+                if (selectedComp != null && c.getId() == selectedComp.getId()) {
+                    companyFilterCombo.setSelectedItem(c);
+                }
+            }
+        }
+
+        loadTrips();
     }
 
     private void loadTrips() {

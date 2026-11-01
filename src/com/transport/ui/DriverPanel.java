@@ -11,7 +11,7 @@ import java.awt.*;
 /**
  * DriverPanel.java - Manage Drivers and Access Credentials
  */
-public class DriverPanel extends JPanel {
+public class DriverPanel extends JPanel implements Refreshable {
 
     private JTable            table;
     private DefaultTableModel tableModel;
@@ -116,6 +116,11 @@ public class DriverPanel extends JPanel {
     private void styleField(JTextField field) {
         field.setFont(UITheme.FONT_BODY);
         field.setPreferredSize(new Dimension(170, 32));
+    }
+
+    @Override
+    public void refreshData() {
+        loadDrivers();
     }
 
     private void loadDrivers() {
