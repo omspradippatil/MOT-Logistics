@@ -12,9 +12,9 @@ echo "  Starting Transport Management System..."
 echo "=============================================="
 
 # Run the compiled application
-# -cp "out:lib/*" : classpath includes compiled files and JARs
+# -cp "app.jar:out:lib/*" : classpath includes JAR bundle, compiled files and drivers
 # com.transport.Main : the main class to run
-java -cp "out:lib/*" com.transport.Main
+java -cp "app.jar:out:lib/*" com.transport.Main
 
 echo ""
 echo "Application closed."

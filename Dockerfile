@@ -32,13 +32,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up noVNC default landing page (auto-connect + auto-scale)
-RUN if [ -d /usr/share/novnc ]; then \
-        echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=\x27vnc.html?autoconnect=true&resize=scale&title=MOT%20Logistics%20System\x27"><title>MOT Logistics</title></head><body>Redirecting to <a href="vnc.html?autoconnect=true&resize=scale&title=MOT%20Logistics%20System">MOT Logistics System</a>...</body></html>' > /usr/share/novnc/index.html; \
-    fi
-
-# Configure MariaDB for low-memory footprint and 0.0.0.0 binding (ideal for 512MB free tiers like Render)
-RUN mkdir -p /etc/mysql/conf.d && \
+# Configure Openbox defaults and MariaDB for low-memory footprint (ideal for 512MB free tiers like Render)
+RUN mkdir -p /root/.config/openbox && touch /root/.config/openbox/rc.xml && \
+    mkdir -p /etc/mysql/conf.d && \
     printf "[mysqld]\nbind-address = 0.0.0.0\nperformance_schema = off\ninnodb_buffer_pool_size = 16M\ninnodb_log_buffer_size = 2M\nkey_buffer_size = 8M\nmax_connections = 25\n" > /etc/mysql/conf.d/lean.cnf
 
 # Set working directory
@@ -46,6 +42,10 @@ WORKDIR /app
 
 # Copy project files into container
 COPY . /app
+
+# Install noVNC index landing page
+RUN cp /app/novnc-index.html /usr/share/novnc/index.html && \
+    ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/default.html
 
 # If lib/mysql-connector-j.jar is missing (e.g. fresh git clone), download it automatically
 RUN if [ ! -f /app/lib/mysql-connector-j.jar ]; then \

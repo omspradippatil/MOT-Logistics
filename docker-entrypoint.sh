@@ -77,12 +77,21 @@ else
     Xvfb :1 -screen 0 "$RESOLUTION" -ac &
     sleep 1
 
+    # Ensure Openbox configuration exists to prevent warning messages
+    mkdir -p /root/.config/openbox
+    touch /root/.config/openbox/rc.xml
+
     # Start Openbox window manager for proper window frames and resizing
     openbox &
     sleep 1
 
     # Start x11vnc server (port 5900)
     x11vnc -display :1 -nopw -listen 0.0.0.0 -xkb -forever -shared -bg >/dev/null 2>&1
+
+    # Ensure noVNC landing page is in place
+    if [ -f /app/novnc-index.html ] && [ -d /usr/share/novnc ]; then
+        cp /app/novnc-index.html /usr/share/novnc/index.html
+    fi
 
     # Start websockify / noVNC web server (reads $PORT from Render, defaults to 6080)
     WEB_PORT="${PORT:-6080}"
@@ -105,9 +114,9 @@ echo ""
 
 cd /app
 
-# Ensure classes are built
-if [ ! -d "/app/out/com" ]; then
-    echo "Compiling Java classes..."
+# Ensure classes and app.jar are built
+if [ ! -f "/app/app.jar" ] || [ ! -d "/app/out/com" ]; then
+    echo "Compiling and packaging Java application..."
     ./build.sh
 fi
 
@@ -115,7 +124,7 @@ fi
 JAVA_OPTS="${JAVA_OPTS:--Xms64m -Xmx192m}"
 while true; do
     echo "Starting MOT Logistics Java Application..."
-    java $JAVA_OPTS -cp "out:lib/*" com.transport.Main || true
+    java $JAVA_OPTS -cp "/app/app.jar:/app/out:/app/lib/*" com.transport.Main || true
     echo "Application exited. Relaunching in 2 seconds (stop the container to exit)..."
     sleep 2
 done

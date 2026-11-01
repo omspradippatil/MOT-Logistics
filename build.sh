@@ -1,11 +1,8 @@
 #!/bin/bash
 # ============================================================
-# build.sh - Compile the Transport Management System
+# build.sh - Compile & Package Transport Management System
 # ============================================================
-# HOW TO USE:
-#   chmod +x build.sh
-#   ./build.sh
-# ============================================================
+set -e
 
 echo "=============================================="
 echo "  Building Transport Management System..."
@@ -22,28 +19,23 @@ if [ ! -f "lib/mysql-connector-j.jar" ]; then
     echo ""
 fi
 
-# Compile all Java files
-# -cp lib/*  : include all JARs in lib folder
-# -d out     : output compiled files to out/ folder
-# -sourcepath: find source files starting from src/
+# Compile all Java source files (excluding standalone tests)
 echo "Compiling Java source files..."
+find src -name "*.java" -not -path "*/test/*" > sources.txt
 
-javac -cp "lib/*" \
+javac -cp "lib/*:src" \
       -d out \
-      -sourcepath src \
-      src/com/transport/Main.java \
-      2>&1
+      @sources.txt
 
-# Check if compilation succeeded
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "✅ Build SUCCESSFUL!"
-    echo ""
-    echo "To run the application:"
-    echo "  ./run.sh"
-    echo ""
-else
-    echo ""
-    echo "❌ Build FAILED! Fix the errors above and try again."
-    echo ""
-fi
+rm -f sources.txt
+
+# Package into a standalone JAR file for bulletproof deployment
+echo "Packaging into app.jar..."
+jar cfe app.jar com.transport.Main -C out .
+
+echo ""
+echo "✅ Build SUCCESSFUL! (Generated out/ and app.jar)"
+echo ""
+echo "To run the application:"
+echo "  ./run.sh"
+echo ""
