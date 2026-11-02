@@ -137,11 +137,12 @@ public class InvoiceGenerator {
                 sb.append("0.93 0.95 0.98 rg\n");
                 sb.append("40 652 515 22 re f\n");
                 sb.append("0.06 0.15 0.33 rg\n");
-                sb.append("BT /F1 9 Tf 50 659 Td (Sr.) Tj ET\n");
-                sb.append("BT /F1 9 Tf 85 659 Td (Trip Date) Tj ET\n");
-                sb.append("BT /F1 9 Tf 165 659 Td (Source Location) Tj ET\n");
-                sb.append("BT /F1 9 Tf 310 659 Td (Destination) Tj ET\n");
-                sb.append("BT /F1 9 Tf 465 659 Td (Amount (INR)) Tj ET\n");
+                sb.append("BT /F1 9 Tf 46 659 Td (Sr.) Tj ET\n");
+                sb.append("BT /F1 9 Tf 68 659 Td (Trip Date) Tj ET\n");
+                sb.append("BT /F1 9 Tf 130 659 Td (Driver Name) Tj ET\n");
+                sb.append("BT /F1 9 Tf 205 659 Td (Vehicle Reg.) Tj ET\n");
+                sb.append("BT /F1 9 Tf 285 659 Td (Route (From -> To)) Tj ET\n");
+                sb.append("BT /F1 9 Tf 468 659 Td (Amount (INR)) Tj ET\n");
 
                 int y = 632;
                 int pageTripsRendered = 0;
@@ -153,12 +154,18 @@ public class InvoiceGenerator {
                     sb.append("0.92 0.94 0.96 rg\n");
                     sb.append("40 ").append(y - 5).append(" 515 0.5 re f\n");
 
+                    String dName = trip.getDriverName() != null ? trip.getDriverName() : "-";
+                    String vNo   = trip.getVehicleNumber() != null ? trip.getVehicleNumber() : "-";
+                    String route = trip.getSourceLocation() + " -> " + trip.getDestination();
+                    if (route.length() > 28) route = route.substring(0, 26) + "..";
+
                     sb.append("0.15 0.15 0.15 rg\n");
-                    sb.append("BT /F2 9 Tf 50 ").append(y).append(" Td (").append(tripIndex + 1).append(") Tj ET\n");
-                    sb.append("BT /F2 9 Tf 85 ").append(y).append(" Td (").append(sdf.format(trip.getTripDate())).append(") Tj ET\n");
-                    sb.append("BT /F2 9 Tf 165 ").append(y).append(" Td (").append(cleanPdfText(trip.getSourceLocation())).append(") Tj ET\n");
-                    sb.append("BT /F2 9 Tf 310 ").append(y).append(" Td (").append(cleanPdfText(trip.getDestination())).append(") Tj ET\n");
-                    sb.append("BT /F2 9 Tf 465 ").append(y).append(" Td (").append(String.format("%,.2f", trip.getAmount())).append(") Tj ET\n");
+                    sb.append("BT /F2 8.5 Tf 46 ").append(y).append(" Td (").append(tripIndex + 1).append(") Tj ET\n");
+                    sb.append("BT /F2 8.5 Tf 68 ").append(y).append(" Td (").append(sdf.format(trip.getTripDate())).append(") Tj ET\n");
+                    sb.append("BT /F2 8.5 Tf 130 ").append(y).append(" Td (").append(cleanPdfText(dName)).append(") Tj ET\n");
+                    sb.append("BT /F2 8.5 Tf 205 ").append(y).append(" Td (").append(cleanPdfText(vNo)).append(") Tj ET\n");
+                    sb.append("BT /F2 8.5 Tf 285 ").append(y).append(" Td (").append(cleanPdfText(route)).append(") Tj ET\n");
+                    sb.append("BT /F2 8.5 Tf 468 ").append(y).append(" Td (").append(String.format("%,.2f", trip.getAmount())).append(") Tj ET\n");
 
                     y -= 20;
                     tripIndex++;
@@ -535,12 +542,12 @@ public class InvoiceGenerator {
                 writer.printf("Vehicle Number  : %s%n", invoice.getVehicleNumber());
             }
             writer.printf("Billing Period  : %s%n", getBillingPeriodText(invoice.getBillingMonth(), invoice.getBillingYear()));
-            writer.println("------------------------------------------------------------");
+            writer.println("---------------------------------------------------------------------------------------------------");
             writer.println();
 
-            writer.printf("%-6s %-12s %-18s %-18s %12s%n",
-                    "Sr.No", "Date", "Source", "Destination", "Amount (INR)");
-            writer.println("------------------------------------------------------------");
+            writer.printf("%-5s %-12s %-15s %-15s %-16s %-16s %14s%n",
+                    "Sr.No", "Date", "Driver (Created By)", "Vehicle Reg.", "Source", "Destination", "Amount (INR)");
+            writer.println("---------------------------------------------------------------------------------------------------");
 
             double totalAmount = 0;
             int sr = 1;
@@ -548,21 +555,23 @@ public class InvoiceGenerator {
             if (trips != null) {
                 for (Trip trip : trips) {
                     totalAmount += trip.getAmount();
-                    writer.printf("%-6d %-12s %-18s %-18s %12.2f%n",
+                    writer.printf("%-5d %-12s %-15s %-15s %-16s %-16s %14.2f%n",
                             sr++,
                             sdf.format(trip.getTripDate()),
+                            trip.getDriverName() != null ? trip.getDriverName() : "-",
+                            trip.getVehicleNumber() != null ? trip.getVehicleNumber() : "-",
                             trip.getSourceLocation(),
                             trip.getDestination(),
                             trip.getAmount());
                 }
             }
 
-            writer.println("------------------------------------------------------------");
-            writer.printf("%-6s %-12s %-18s %-18s %12d%n",
-                    "", "", "", "Total Trips:", (trips != null ? trips.size() : 0));
-            writer.printf("%-6s %-12s %-18s %-18s %12.2f%n",
-                    "", "", "", "TOTAL PAYABLE:", totalAmount);
-            writer.println("============================================================");
+            writer.println("---------------------------------------------------------------------------------------------------");
+            writer.printf("%-5s %-12s %-15s %-15s %-16s %-16s %14d%n",
+                    "", "", "", "", "", "Total Trips:", (trips != null ? trips.size() : 0));
+            writer.printf("%-5s %-12s %-15s %-15s %-16s %-16s %14.2f%n",
+                    "", "", "", "", "", "TOTAL PAYABLE:", totalAmount);
+            writer.println("===================================================================================================");
             writer.println();
 
             writer.println("  Authorized Signatory                  Client Company Signatory");

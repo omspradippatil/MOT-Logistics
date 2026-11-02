@@ -23,9 +23,9 @@ public class AdminDAO {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, usernameOrEmail);
-            stmt.setString(2, usernameOrEmail);
-            stmt.setString(3, password);
+            stmt.setString(1, usernameOrEmail != null ? usernameOrEmail.trim() : "");
+            stmt.setString(2, usernameOrEmail != null ? usernameOrEmail.trim() : "");
+            stmt.setString(3, password != null ? password.trim() : "");
 
             ResultSet rs = stmt.executeQuery();
 

@@ -200,6 +200,10 @@ public class TripDAO {
      * Strictly isolated trips query for Company Admin.
      * Guaranteed never to leak other companies' data.
      */
+    public List<Trip> getTripsByCompany(int companyId) {
+        return getTripsByCompany(companyId, -1, -1, -1, -1, null);
+    }
+
     public List<Trip> getTripsByCompany(int companyId, int driverId, int vehicleId, int month, int year, String searchKeyword) {
         List<Trip> trips = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
@@ -250,6 +254,10 @@ public class TripDAO {
     /**
      * Retrieves trips for a driver across all companies (or filtered by company).
      */
+    public List<Trip> getTripsByDriver(int driverId) {
+        return getTripsByDriver(driverId, -1, -1, -1, -1, null);
+    }
+
     public List<Trip> getTripsByDriver(int driverId, int companyId, int vehicleId, int month, int year, String searchKeyword) {
         List<Trip> trips = new ArrayList<>();
         StringBuilder sql = new StringBuilder(

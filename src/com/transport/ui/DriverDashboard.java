@@ -26,6 +26,8 @@ public class DriverDashboard extends JFrame {
 
     private Driver driver;
     private TripDAO tripDAO = new TripDAO();
+    private JTabbedPane tabs;
+    private Timer autoSyncTimer;
 
     public DriverDashboard(Driver driver) {
         this.driver = driver;
@@ -36,6 +38,7 @@ public class DriverDashboard extends JFrame {
         setLocationRelativeTo(null);
 
         initUI();
+        initAutoSync();
     }
 
     private void initUI() {
@@ -44,32 +47,57 @@ public class DriverDashboard extends JFrame {
         headerPanel.setBackground(UITheme.BRAND_NAVY);
         headerPanel.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
 
-        JPanel titleBlock = new JPanel(new GridLayout(2, 1));
+        JPanel titleBlock = new JPanel(new GridLayout(2, 1, 0, 3));
         titleBlock.setOpaque(false);
+
+        JPanel brandRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        brandRow.setOpaque(false);
 
         JLabel brandLabel = new JLabel("MOT LOGISTICS  |  DRIVER & VEHICLE OWNER PORTAL");
         brandLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         brandLabel.setForeground(Color.WHITE);
 
+        JLabel liveBadge = new JLabel("● Live Connected");
+        liveBadge.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        liveBadge.setForeground(new Color(34, 197, 94)); // green
+
+        brandRow.add(brandLabel);
+        brandRow.add(liveBadge);
+
         JLabel driverLabel = new JLabel("Driver: " + driver.getDriverName() + "  |  Mobile: " + driver.getMobileNumber() + "  |  Licence: " + driver.getLicenceNumber());
         driverLabel.setFont(UITheme.FONT_SMALL);
         driverLabel.setForeground(new Color(148, 163, 184));
 
-        titleBlock.add(brandLabel);
+        titleBlock.add(brandRow);
         titleBlock.add(driverLabel);
 
+        JPanel rightHeader = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        rightHeader.setOpaque(false);
+
+        ModernButton syncBtn = new ModernButton("↺ Live Sync", UITheme.UPDATE_BLUE);
+        syncBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        syncBtn.setPreferredSize(new Dimension(110, 32));
+        syncBtn.addActionListener(e -> {
+            refreshActiveTab();
+            JOptionPane.showMessageDialog(this, "Driver portal updated with latest company status and payments!", "Synced", JOptionPane.INFORMATION_MESSAGE);
+        });
+
         ModernButton logoutBtn = new ModernButton("Logout", UITheme.DANGER_RED);
-        logoutBtn.setPreferredSize(new Dimension(100, 32));
+        logoutBtn.setPreferredSize(new Dimension(90, 32));
         logoutBtn.addActionListener(e -> {
+            if (autoSyncTimer != null) autoSyncTimer.stop();
             dispose();
             new LoginFrame().setVisible(true);
         });
 
+        rightHeader.add(syncBtn);
+        rightHeader.add(logoutBtn);
+
         headerPanel.add(titleBlock, BorderLayout.WEST);
-        headerPanel.add(logoutBtn, BorderLayout.EAST);
+        headerPanel.add(rightHeader, BorderLayout.EAST);
 
         // Tabbed Navigation
-        JTabbedPane tabs = new JTabbedPane();
+        tabs = new JTabbedPane();
         tabs.setFont(UITheme.FONT_BODY_BOLD);
         tabs.setBackground(Color.WHITE);
 
@@ -80,20 +108,38 @@ public class DriverDashboard extends JFrame {
         tabs.addTab("  📄 My Monthly Invoices  ",  new DriverMonthlyInvoicesPanel(driver));
         tabs.addTab("  👤 Profile & Settings  ",   new DriverProfilePanel(driver));
 
-        tabs.addChangeListener(e -> {
-            int selectedIndex = tabs.getSelectedIndex();
-            if (selectedIndex == 0) {
-                tabs.setComponentAt(0, createDriverDashboardPanel());
-            } else {
-                Component comp = tabs.getComponentAt(selectedIndex);
-                if (comp instanceof Refreshable) {
-                    ((Refreshable) comp).refreshData();
-                }
-            }
-        });
+        tabs.addChangeListener(e -> refreshActiveTab());
 
         add(headerPanel, BorderLayout.NORTH);
         add(tabs, BorderLayout.CENTER);
+    }
+
+    private void initAutoSync() {
+        autoSyncTimer = new Timer(3500, e -> {
+            if (isVisible() && getState() != Frame.ICONIFIED) {
+                refreshActiveTab();
+            }
+        });
+        autoSyncTimer.start();
+
+        addWindowFocusListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowGainedFocus(java.awt.event.WindowEvent e) {
+                refreshActiveTab();
+            }
+        });
+    }
+
+    public void refreshActiveTab() {
+        int selectedIndex = tabs.getSelectedIndex();
+        if (selectedIndex == 0) {
+            tabs.setComponentAt(0, createDriverDashboardPanel());
+        } else {
+            Component comp = tabs.getComponentAt(selectedIndex);
+            if (comp instanceof Refreshable) {
+                ((Refreshable) comp).refreshData();
+            }
+        }
     }
 
     private JPanel createDriverDashboardPanel() {

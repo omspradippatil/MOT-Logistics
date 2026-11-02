@@ -140,9 +140,6 @@ public class DriverTripsDetailDialog extends JDialog {
         bottomPanel.add(summaryCard, BorderLayout.NORTH);
         bottomPanel.add(btnBar,       BorderLayout.SOUTH);
 
-        bottomPanel.add(totalAmountLabel, BorderLayout.WEST);
-        bottomPanel.add(btnBar, BorderLayout.EAST);
-
         contentPanel.add(headerPanel, BorderLayout.NORTH);
         contentPanel.add(scrollPane, BorderLayout.CENTER);
         contentPanel.add(bottomPanel, BorderLayout.SOUTH);

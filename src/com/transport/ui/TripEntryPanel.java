@@ -226,14 +226,16 @@ public class TripEntryPanel extends JPanel implements Refreshable {
 
         if (tripDAO.addTrip(trip)) {
             JOptionPane.showMessageDialog(this,
-                "Trip recorded successfully in database!\n\n" +
-                "Trip Reference : " + trip.getTripCode() + "\n" +
-                "Company        : " + selectedComp.getCompanyName() + "\n" +
-                "Driver         : " + loggedInDriver.getDriverName() + "\n" +
-                "Vehicle        : " + selectedVeh.getRegistrationNumber() + "\n" +
-                "Route          : " + trip.getSourceLocation() + " -> " + trip.getDestination() + "\n" +
-                "Amount         : ₹ " + String.format("%.2f", amount),
-                "Trip Submitted", JOptionPane.INFORMATION_MESSAGE);
+                "✓ Transport Trip Recorded & Connected to Company!\n\n" +
+                "Trip Reference ID  : " + trip.getTripCode() + "\n" +
+                "Client Company     : " + selectedComp.getCompanyName() + " (Directly visible in Company Admin Portal)\n" +
+                "Created By Driver  : " + loggedInDriver.getDriverName() + " (Mobile: " + loggedInDriver.getMobileNumber() + ")\n" +
+                "Assigned Vehicle   : " + selectedVeh.getRegistrationNumber() + " (" + selectedVeh.getVehicleType() + ")\n" +
+                "Operational Route  : " + trip.getSourceLocation() + " -> " + trip.getDestination() + "\n" +
+                "Cargo Description  : " + trip.getGoodsDescription() + "\n" +
+                "Trip Fare Amount   : ₹ " + String.format("%.2f", amount) + "\n\n" +
+                "The trip is now live and linked to " + selectedComp.getCompanyName() + "'s transport ledger and monthly invoice.",
+                "Trip Submitted & Connected", JOptionPane.INFORMATION_MESSAGE);
 
             clearForm();
         } else {

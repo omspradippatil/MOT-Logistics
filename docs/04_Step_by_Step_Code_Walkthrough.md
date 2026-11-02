@@ -54,7 +54,7 @@ Handles all relational database transactions using parameterized JDBC `PreparedS
 ### `TripDAO.java`
 - `generateTripCode()`: Auto-generates sequential IDs (e.g., `TRIP001`, `TRIP002`).
 - `addTrip(Trip t)`: Persists daily trips with cargo goods description and status.
-- `getTripsByCompany(int companyId, int driverId, int vehicleId, int month, int year, String search)`: Strictly company-scoped query ensuring no cross-company data leakage.
+- `getTripsByCompany(int companyId, int driverId, int vehicleId, int month, int year, String search)`: Strictly company-scoped query ensuring no cross-company data leakage. Joins `driver` and `vehicle` tables so that `driver_name` and `registration_number` are always populated.
 - `getTripsByDriver(int driverId, int companyId, int vehicleId, int month, int year, String search)`: Driver-scoped query across all or specific companies.
 - `getCompanyStats(int companyId)`: Aggregates trips, drivers, vehicles, monthly billing, paid amounts, and pending balances for that specific company.
 - `getDriverStats(int driverId)`: Aggregates driver trips, companies worked with, total lifetime earnings, and pending balances.
@@ -76,7 +76,7 @@ Handles all relational database transactions using parameterized JDBC `PreparedS
 
 ### `InvoiceGenerator.java`
 - **Pure Core Java PDF 1.4 Engine:** Uses native byte streaming (`ByteArrayOutputStream`) to construct standards-compliant PDF 1.4 binary objects, dictionaries, pages, fonts, xref cross-reference tables, and trailers. Zero external libraries required.
-- `generatePDF(Invoice invoice, List<Trip> trips, String filePath)`: Multi-page monthly transport invoice with itemized table, cargo descriptions, totals, and signatures.
+- `generatePDF(Invoice invoice, List<Trip> trips, String filePath)`: Multi-page monthly transport invoice with itemized table including **Driver Name**, **Vehicle Registration**, Route, and amounts.
 - `generateTripReceiptPDF(Trip trip, String filePath)`: Official single-trip delivery receipt and cash voucher.
 - `generateTripsSummaryPDF(List<Trip> trips, String title, String subtitle, String filePath)`: Consolidated audit reports.
 
@@ -90,25 +90,30 @@ Handles all relational database transactions using parameterized JDBC `PreparedS
 ### UI Foundations
 - `UITheme.java`: Central design system defining color palettes (Deep Navy, Slate Gray, Emerald Green, Indigo Accent), fonts, table stylers, and card borders.
 - `ModernButton.java`: Custom `JButton` overriding `paintComponent` with anti-aliasing, rounded borders, and state-aware hover effects.
-- `Refreshable.java`: Interface triggering data reload across tabs when switched.
+- `Refreshable.java`: Interface triggering data reload across tabs when switched or automatically synced.
 
 ### Authentication Screen
 - `LoginFrame.java`: Two distinct tabbed workflows: **Company Admin** and **Driver / Vehicle Owner**. Includes self-service registration and password reset dialogs.
 
 ### Company Admin Workstation (`AdminDashboard.java`)
-- **Dashboard:** Company-specific metrics cards and recent operational trips table.
-- `CompanyDriversPanel.java`: Roster of drivers for this company (`Driver Name | Vehicle Number | Total Trips`). Includes a prominent **"➕ Add Driver to Company"** button.
+- **Live Connected Command Center:**
+  - Background `javax.swing.Timer` (3.5s interval) and `WindowFocusListener` automatically pull newly logged driver trips into the active tab without manual reload.
+  - Header displays a live status indicator (`● Live Connected (Driver Sync)`) and a manual `↺ Live Sync` button.
+- **Dashboard Tab:** 6 real-time stat cards and "Recent Operational Trips" table with explicit **"Driver (Created By)"** column. Double-clicking any trip row opens a complete operational audit dialog.
+- `CompanyDriversPanel.java`: Roster of drivers for this company (`Driver Name | Mobile | Email | Vehicle Number(s) | Trips Completed for Company`). Includes **"➕ Add Driver to Company"** button and double-click to view driver's trips and download their invoice.
 - `AddDriverToCompanyDialog.java`: Interactive dialog enabling Company Admins to register a brand new commercial driver and vehicle linked to their company, or assign an active fleet driver.
-- `DriverTripsDetailDialog.java`: Displays ONLY trips completed by the selected driver for this company with a prominent **Download Invoice** button.
-- `CompanyTripManagementPanel.java`: Company trips ledger with driver, vehicle, month, year, and location search filters.
-- `CompanyMonthlyInvoicePanel.java`: Month/Year selector, real-time trip preview, monthly invoice generation, and PDF download.
+- `DriverTripsDetailDialog.java`: Displays ONLY trips completed by the selected driver for this company with a prominent **Download Invoice (PDF)** button.
+- `CompanyTripManagementPanel.java`: Company trips ledger with driver, vehicle, month, year, and location search filters. Table features a dedicated **"Driver (Created By)"** column and double-click inspection.
+- `CompanyMonthlyInvoicePanel.java`: Month/Year selector, real-time trip preview displaying **"Driver (Created By)"** for each trip, distinct driver count in the summary banner, monthly invoice generation, and PDF download.
 - `CompanyPaymentManagementPanel.java`: Invoice receivables tracking and payment settlement dialog.
 - `CompanyProfilePanel.java`: Company profile and password management.
 
 ### Driver & Vehicle Owner Portal (`DriverDashboard.java`)
-- **Dashboard:** Lifetime earnings, current month trips, companies worked with, and payment statuses.
-- `TripEntryPanel.java`: Daily trip entry with company dropdown, vehicle dropdown, route, cargo description, amount, and remarks.
-- `DriverTripHistoryPanel.java`: Complete cross-company trips history with receipt PDF export.
+- **Live Operational Dashboard:**
+  - Background auto-sync timer and window focus listeners ensure driver earnings and trip records stay current.
+  - Header includes live connection badge and `↺ Live Sync` button.
+- `TripEntryPanel.java`: Daily trip entry with company dropdown, vehicle dropdown, route, cargo description, amount, and remarks. Upon submission, displays a detailed confirmation emphasizing the immediate connection to the selected company's portal.
+- `DriverTripHistoryPanel.java`: Complete cross-company trips history showing client company name and receipt PDF export.
 - `DriverVehiclesPanel.java`: View registered fleet and add new commercial vehicles.
 - `DriverMonthlyInvoicesPanel.java`: Company + Month selector, trip earnings preview, driver invoice generation, and PDF download.
 - `DriverProfilePanel.java`: Self-service driver contact details and password updates.

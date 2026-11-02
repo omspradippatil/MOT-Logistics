@@ -19,15 +19,29 @@ public class CompanyDAO {
 
     /** Add a new company to the database */
     public boolean addCompany(Company company) {
-        String sql = "INSERT INTO company (company_name, address, contact_number, gst_number) VALUES (?, ?, ?, ?)";
+        String adminName = (company.getAdminName() != null && !company.getAdminName().trim().isEmpty())
+                ? company.getAdminName() : company.getCompanyName() + " Admin";
+        String email = (company.getEmail() != null && !company.getEmail().trim().isEmpty())
+                ? company.getEmail() : "contact_" + (System.currentTimeMillis() % 1000000) + "@company.com";
+        String username = (company.getUsername() != null && !company.getUsername().trim().isEmpty())
+                ? company.getUsername() : "comp_" + (System.currentTimeMillis() % 1000000);
+        String password = (company.getPassword() != null && !company.getPassword().trim().isEmpty())
+                ? company.getPassword() : "comp123";
+
+        String sql = "INSERT INTO company (company_name, admin_name, email, username, password, address, contact_number, gst_number) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, company.getCompanyName());
-            stmt.setString(2, company.getAddress());
-            stmt.setString(3, company.getContactNumber());
-            stmt.setString(4, company.getGstNumber());
+            stmt.setString(2, adminName);
+            stmt.setString(3, email);
+            stmt.setString(4, username);
+            stmt.setString(5, password);
+            stmt.setString(6, company.getAddress());
+            stmt.setString(7, company.getContactNumber());
+            stmt.setString(8, company.getGstNumber());
 
             int rows = stmt.executeUpdate();
             return rows > 0; // true if insert was successful

@@ -107,7 +107,7 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
 
         // Preview Table
         String[] cols = {
-            "Trip ID", "Trip Date", "Driver", "Vehicle No", "From (Source)",
+            "Trip ID", "Trip Date", "Driver (Created By)", "Vehicle Reg.", "From (Source)",
             "To (Destination)", "Cargo / Goods", "Trip Amount (₹)", "Status"
         };
         previewTableModel = new DefaultTableModel(cols, 0) {
@@ -119,13 +119,22 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
         // Set column widths so content and headers never truncate
         previewTable.getColumnModel().getColumn(0).setPreferredWidth(85);   // Trip ID
         previewTable.getColumnModel().getColumn(1).setPreferredWidth(95);   // Trip Date
-        previewTable.getColumnModel().getColumn(2).setPreferredWidth(100);  // Driver
-        previewTable.getColumnModel().getColumn(3).setPreferredWidth(125);  // Vehicle No
+        previewTable.getColumnModel().getColumn(2).setPreferredWidth(140);  // Driver (Created By)
+        previewTable.getColumnModel().getColumn(3).setPreferredWidth(125);  // Vehicle Reg.
         previewTable.getColumnModel().getColumn(4).setPreferredWidth(110);  // From (Source)
         previewTable.getColumnModel().getColumn(5).setPreferredWidth(110);  // To (Destination)
         previewTable.getColumnModel().getColumn(6).setPreferredWidth(170);  // Cargo / Goods
         previewTable.getColumnModel().getColumn(7).setPreferredWidth(120);  // Trip Amount (₹)
         previewTable.getColumnModel().getColumn(8).setPreferredWidth(90);   // Status
+
+        previewTable.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2 && previewTable.getSelectedRow() >= 0) {
+                    showPreviewTripDetails(previewTable.getSelectedRow());
+                }
+            }
+        });
 
         JScrollPane scrollPane = new JScrollPane(previewTable);
         scrollPane.setBorder(UITheme.createCardBorder("Completed Trips for Selected Month"));
@@ -239,8 +248,10 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
         currentPreviewTrips = tripDAO.getTripsForInvoice(companyAdmin.getCompanyId(), -1, -1, month, year);
 
         double totalAmount = 0.0;
+        java.util.Set<String> driversInvolved = new java.util.HashSet<>();
         for (Trip t : currentPreviewTrips) {
             totalAmount += t.getAmount();
+            if (t.getDriverName() != null) driversInvolved.add(t.getDriverName());
             previewTableModel.addRow(new Object[]{
                 t.getTripCode(),
                 sdf.format(t.getTripDate()),
@@ -255,8 +266,41 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
         }
 
         previewSummaryLabel.setText("Billing Month: " + MONTHS[month - 1] + " " + year +
-                "   |   Total Completed Trips: " + currentPreviewTrips.size() +
-                "   |   Total Payable Amount: ₹ " + String.format("%,.2f", totalAmount));
+                "   |   Completed Trips: " + currentPreviewTrips.size() +
+                "   |   Drivers Engaged: " + driversInvolved.size() +
+                "   |   Total Payable: ₹ " + String.format("%,.2f", totalAmount));
+    }
+
+    private void showPreviewTripDetails(int row) {
+        String tripCode = (String) previewTableModel.getValueAt(row, 0);
+        String tripDate = (String) previewTableModel.getValueAt(row, 1);
+        String driver   = (String) previewTableModel.getValueAt(row, 2);
+        String vehicle  = (String) previewTableModel.getValueAt(row, 3);
+        String from     = (String) previewTableModel.getValueAt(row, 4);
+        String to       = (String) previewTableModel.getValueAt(row, 5);
+        String goods    = (String) previewTableModel.getValueAt(row, 6);
+        String amount   = (String) previewTableModel.getValueAt(row, 7);
+        String status   = (String) previewTableModel.getValueAt(row, 8);
+
+        String msg =
+            "====================================================\n" +
+            "       MONTHLY INVOICE TRIP & DRIVER VERIFICATION   \n" +
+            "====================================================\n\n" +
+            "Trip Reference ID    : " + tripCode + "\n" +
+            "Trip Date            : " + tripDate + "\n" +
+            "Client Company       : " + companyAdmin.getCompanyName() + "\n\n" +
+            "DRIVER ATTRIBUTION & CONNECTION:\n" +
+            "Created By Driver    : " + driver + "\n" +
+            "Assigned Vehicle Reg.: " + vehicle + "\n\n" +
+            "ROUTE & BILLING:\n" +
+            "Pickup Location      : " + from + "\n" +
+            "Drop Destination     : " + to + "\n" +
+            "Cargo / Goods        : " + goods + "\n" +
+            "Trip Fare Amount     : " + amount + "\n" +
+            "Status               : " + status + "\n\n" +
+            "====================================================";
+
+        JOptionPane.showMessageDialog(this, msg, "Trip Details - " + tripCode, JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void loadInvoiceArchive() {

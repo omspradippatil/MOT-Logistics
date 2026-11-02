@@ -134,7 +134,7 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
 
         // Table
         String[] cols = {
-            "ID", "Trip Code", "Date", "Driver Name", "Vehicle No",
+            "ID", "Trip Code", "Date", "Driver (Created By)", "Vehicle Reg.",
             "From (Source)", "To (Destination)", "Goods Description", "Amount (₹)", "Status"
         };
         tableModel = new DefaultTableModel(cols, 0) {
@@ -150,13 +150,22 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
 
         table.getColumnModel().getColumn(1).setPreferredWidth(85);   // Trip Code
         table.getColumnModel().getColumn(2).setPreferredWidth(95);   // Date
-        table.getColumnModel().getColumn(3).setPreferredWidth(100);  // Driver Name
-        table.getColumnModel().getColumn(4).setPreferredWidth(125);  // Vehicle No
+        table.getColumnModel().getColumn(3).setPreferredWidth(140);  // Driver (Created By)
+        table.getColumnModel().getColumn(4).setPreferredWidth(125);  // Vehicle Reg.
         table.getColumnModel().getColumn(5).setPreferredWidth(110);  // From
         table.getColumnModel().getColumn(6).setPreferredWidth(110);  // To
         table.getColumnModel().getColumn(7).setPreferredWidth(160);  // Goods
         table.getColumnModel().getColumn(8).setPreferredWidth(110);  // Amount
         table.getColumnModel().getColumn(9).setPreferredWidth(90);   // Status
+
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2 && table.getSelectedRow() >= 0) {
+                    showSelectedTripDetails();
+                }
+            }
+        });
 
         JScrollPane scrollPane = new JScrollPane(table);
         scrollPane.setBorder(UITheme.createCardBorder("Trips Audit Ledger"));
@@ -303,17 +312,23 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
 
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
         String message =
-            "Trip Reference ID  : " + trip.getTripCode() + "\n" +
-            "Trip Date          : " + sdf.format(trip.getTripDate()) + "\n" +
-            "Company (Tenant)   : " + trip.getCompanyName() + "\n" +
-            "Driver In-Charge   : " + trip.getDriverName() + "\n" +
-            "Vehicle Reg. No.   : " + trip.getVehicleNumber() + "\n" +
-            "Source (From)      : " + trip.getSourceLocation() + "\n" +
-            "Destination (To)   : " + trip.getDestination() + "\n" +
-            "Cargo / Goods      : " + (trip.getGoodsDescription() != null ? trip.getGoodsDescription() : "N/A") + "\n" +
-            "Trip Amount        : ₹ " + String.format("%,.2f", trip.getAmount()) + "\n" +
-            "Trip Status        : " + trip.getTripStatus() + "\n" +
-            "Remarks            : " + (trip.getRemarks() != null ? trip.getRemarks() : "None");
+            "====================================================\n" +
+            "       OPERATIONAL TRIP AUDIT & DRIVER CONNECTION   \n" +
+            "====================================================\n\n" +
+            "Trip Reference ID    : " + trip.getTripCode() + "\n" +
+            "Trip Date            : " + sdf.format(trip.getTripDate()) + "\n" +
+            "Client Company       : " + trip.getCompanyName() + "\n\n" +
+            "DRIVER ATTRIBUTION & CONNECTION:\n" +
+            "Created By Driver    : " + trip.getDriverName() + "\n" +
+            "Assigned Vehicle Reg.: " + trip.getVehicleNumber() + "\n\n" +
+            "LOGISTICS & FINANCIAL ROUTE:\n" +
+            "Source (Pickup)      : " + trip.getSourceLocation() + "\n" +
+            "Destination (Drop)   : " + trip.getDestination() + "\n" +
+            "Cargo / Goods        : " + (trip.getGoodsDescription() != null ? trip.getGoodsDescription() : "General Cargo") + "\n" +
+            "Trip Fare Amount     : ₹ " + String.format("%,.2f", trip.getAmount()) + "\n" +
+            "Trip Status          : " + trip.getTripStatus() + "\n" +
+            "Remarks              : " + (trip.getRemarks() != null && !trip.getRemarks().trim().isEmpty() ? trip.getRemarks() : "None") + "\n\n" +
+            "====================================================";
 
         JOptionPane.showMessageDialog(this, message, "Trip Details - " + trip.getTripCode(), JOptionPane.INFORMATION_MESSAGE);
     }
