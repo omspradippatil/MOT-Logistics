@@ -164,3 +164,36 @@ CREATE TABLE payment (
 | 1 | Rahul | `rahul` | `rahul@transport.com` | `rahul123` | `MH-48-AB-1234` (Tempo), `MH-02-XY-4321` (Pickup Van) |
 | 2 | Amit | `amit` | `amit@transport.com` | `amit123` | `MH-48-CD-5678` (Pickup Van) |
 | 3 | Sagar | `sagar` | `sagar@transport.com` | `sagar123` | `MH-48-EF-9012` (Heavy Truck), `MH-04-GH-7890` (Trailer) |
+
+---
+
+## 4. Server Deployment & Database Import Guide
+
+The project provides three standalone, production-ready `.sql` files:
+
+1. **`data.sql` (Project Root):** Universal complete deployment script containing database creation, table DDL, and full seed data. Compatible with standard deployment pipelines, Docker compose `initdb.d`, Dokploy, and cloud MySQL hosts.
+2. **`database/schema.sql`:** Complete schema definition and initial data used by Docker builds and container entrypoints.
+3. **`database/data.sql`:** Data-only insert script for populating existing databases.
+
+### Import Commands on Deployed Server
+
+#### Option A: Direct MySQL / MariaDB Command Line
+```bash
+# Import complete database (creates transport_db, all tables, and seed data)
+mysql -u root -p < data.sql
+
+# Or using the database directory schema
+mysql -u root -p < database/schema.sql
+```
+
+#### Option B: Docker Container Deployment
+The included `docker-entrypoint.sh` automatically checks for tables on container startup and imports `/app/database/schema.sql` if the database is uninitialized or empty:
+```bash
+docker-compose up -d --build
+```
+
+#### Option C: Cloud Hosted MySQL (AWS RDS, DigitalOcean, PlanetScale, Railway)
+```bash
+mysql -h <host> -P <port> -u <user> -p<password> < data.sql
+```
+

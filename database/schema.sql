@@ -3,8 +3,11 @@
 -- Production-Grade Multi-Tenant Schema & Realistic Simulation Data
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS transport_db;
+CREATE DATABASE IF NOT EXISTS transport_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE transport_db;
+
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
 
 -- ------------------------------------------------------------
 -- Drop existing tables to establish clean updated relational structure
@@ -138,9 +141,10 @@ CREATE TABLE payment (
 INSERT INTO company (id, company_name, admin_name, email, username, password, contact_number, address, gst_number) VALUES
 (1, 'Om Sai Logistics & Supply Chain', 'Rajesh Patil',     'admin@omsai.com',               'omsai',    'omsai123',    '+91 98220 11223', 'Plot 42, MIDC Industrial Area, Wada, Palghar - 421303',              '27AABCO1234F1Z1'),
 (2, 'Oracle Supply Chain Solutions',  'Sanjay Deshmukh',  'admin@oracle.com',              'oracle',   'oracle123',   '+91 98330 99887', 'Cyber Park, Pokhran Road No 2, Thane West, Mumbai - 400601',        '27AAACT9876Q1Z9'),
-(3, 'Mahindra Integrated Logistics',   'Vikrant Mehta',    'admin@mahindra-logistics.com',  'mahindra', 'mahindra123', '+91 98190 77665', 'Building B, Logistics Super Hub, Mankoli, Bhiwandi - 421302',       '27AABCM5566M1Z4'),
-(4, 'Tata Supply Chain Solutions',     'Pooja Sharma',     'admin@tatalogistics.com',       'tata',     'tata123',     '+91 98200 44556', 'Tata Industrial Complex, Phase 2, Chakan MIDC, Pune - 410501',       '27AAACT2233P1Z2'),
-(5, 'MOT Logistics Central Operations','Operations Head',  'admin@motlogistics.in',         'admin',    'admin123',    '+91 98200 00100', 'MOT Corporate Tower, Senapati Bapat Marg, Lower Parel, Mumbai - 400013','27AAACM0001A1Z0');
+(3, 'Company XYZ Transport',          'Vikrant Mehta',    'admin@xyz.com',                 'xyz',      'xyz123',      '+91 98190 77665', 'Building B, Logistics Super Hub, Mankoli, Bhiwandi - 421302',       '27AABCX5566M1Z4'),
+(4, 'Mahindra Integrated Logistics',  'Rajeev Mahindra',  'admin@mahindra-logistics.com',  'mahindra', 'mahindra123', '+91 98190 88776', 'Logistics Park, Chakan, Pune',                                      '27AABCM5566M1Z4'),
+(5, 'Tata Supply Chain Solutions',    'Pooja Sharma',     'admin@tatalogistics.com',       'tata',     'tata123',     '+91 98200 44556', 'Tata Industrial Complex, Phase 2, Chakan MIDC, Pune - 410501',       '27AAACT2233P1Z2'),
+(6, 'MOT Logistics Central Operations','Operations Head', 'admin@motlogistics.in',        'admin',    'admin123',    '+91 98200 00100', 'MOT Corporate Tower, Senapati Bapat Marg, Lower Parel, Mumbai - 400013','27AAACM0001A1Z0');
 
 -- 2. SEED DRIVERS (Licensed Commercial Fleet Operators)
 INSERT INTO driver (id, driver_name, mobile_number, email, licence_number, username, password, is_active) VALUES
@@ -284,3 +288,5 @@ INSERT INTO payment (id, invoice_id, company_id, total_amount, amount_received, 
 (7, 7, 1, 16000.00, 10000.00, 6000.00, '2026-11-15', 'Partially Paid', 'Part payment received via RTGS #HDFC2611158912; balance scheduled'),
 (8, 8, 2, 14900.00, 14900.00, 0.00,    '2026-11-15', 'Paid',           'Full invoice settlement via Corporate Wire #CITI1115449'),
 (9, 9, 3, 32200.00, 15000.00, 17200.00,'2026-11-15', 'Partially Paid', '50% progress billing paid via Axis Bank Corporate #AXIS991204');
+
+SET FOREIGN_KEY_CHECKS = 1;

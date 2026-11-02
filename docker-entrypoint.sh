@@ -49,18 +49,22 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Initialize transport_db and grant permissions if not present
-if ! mysql -u root -e "USE transport_db;" 2>/dev/null; then
-    echo "[3/4] Database 'transport_db' not detected. Importing schema.sql..."
-    mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('');" 2>/dev/null || true
-    mysql -u root -e "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED VIA mysql_native_password USING PASSWORD('');" 2>/dev/null || true
-    mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;" 2>/dev/null || true
-    mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;" 2>/dev/null || true
-    mysql -u root -e "FLUSH PRIVILEGES;" 2>/dev/null || true
+# Initialize transport_db and grant permissions
+echo "[3/4] Checking database initialization..."
+mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('');" 2>/dev/null || true
+mysql -u root -e "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED VIA mysql_native_password USING PASSWORD('');" 2>/dev/null || true
+mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;" 2>/dev/null || true
+mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;" 2>/dev/null || true
+mysql -u root -e "FLUSH PRIVILEGES;" 2>/dev/null || true
+
+TABLE_COUNT=$(mysql -u root -s -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'transport_db';" 2>/dev/null || echo "0")
+
+if [ "$TABLE_COUNT" -eq 0 ] || [ "$FORCE_DB_RESEED" = "true" ]; then
+    echo "      Database 'transport_db' has $TABLE_COUNT tables. Importing /app/database/schema.sql..."
     mysql -u root < /app/database/schema.sql
-    echo "      Database seeded successfully with all initial data."
+    echo "      Database successfully initialized and seeded with all production records."
 else
-    echo "[3/4] Database 'transport_db' is already initialized."
+    echo "      Database 'transport_db' is already initialized with $TABLE_COUNT tables."
 fi
 
 # Configure display server
