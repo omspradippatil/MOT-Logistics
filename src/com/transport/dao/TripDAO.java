@@ -109,7 +109,9 @@ public class TripDAO {
         return getTripsByFilter(driverId, -1, -1, -1, -1);
     }
 
-    /** Retrieve matching trips for invoice generation (by company, month, year, driver, vehicle) */
+    /** Retrieve matching trips for invoice generation (by company, month, year, driver, vehicle).
+     * Pass month <= 0 to retrieve trips for All Months (annual/cumulative).
+     */
     public List<Trip> getTripsForInvoice(int companyId, int driverId, int vehicleId, int month, int year) {
         List<Trip> trips = new ArrayList<>();
 
@@ -119,10 +121,12 @@ public class TripDAO {
             "JOIN company c ON t.company_id = c.id " +
             "JOIN driver d ON t.driver_id = d.id " +
             "JOIN vehicle v ON t.vehicle_id = v.id " +
-            "WHERE t.company_id=? AND MONTH(t.trip_date)=? AND YEAR(t.trip_date)=?"
+            "WHERE t.company_id=?"
         );
 
-        if (driverId > 0) sql.append(" AND t.driver_id=?");
+        if (year > 0)  sql.append(" AND YEAR(t.trip_date)=?");
+        if (month > 0) sql.append(" AND MONTH(t.trip_date)=?");
+        if (driverId > 0)  sql.append(" AND t.driver_id=?");
         if (vehicleId > 0) sql.append(" AND t.vehicle_id=?");
         sql.append(" ORDER BY t.trip_date ASC");
 
@@ -131,8 +135,8 @@ public class TripDAO {
 
             int idx = 1;
             stmt.setInt(idx++, companyId);
-            stmt.setInt(idx++, month);
-            stmt.setInt(idx++, year);
+            if (year > 0)  stmt.setInt(idx++, year);
+            if (month > 0) stmt.setInt(idx++, month);
             if (driverId > 0)  stmt.setInt(idx++, driverId);
             if (vehicleId > 0) stmt.setInt(idx++, vehicleId);
 
@@ -145,6 +149,27 @@ public class TripDAO {
             System.out.println("TripDAO.getTripsForInvoice error: " + e.getMessage());
         }
         return trips;
+    }
+
+    /** Retrieve a single trip by ID */
+    public Trip getTripById(int id) {
+        String sql = "SELECT t.*, c.company_name, d.driver_name, v.registration_number " +
+                     "FROM trip t " +
+                     "JOIN company c ON t.company_id = c.id " +
+                     "JOIN driver d ON t.driver_id = d.id " +
+                     "JOIN vehicle v ON t.vehicle_id = v.id " +
+                     "WHERE t.id=?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, id);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) return mapRow(rs);
+
+        } catch (SQLException e) {
+            System.out.println("TripDAO.getTripById error: " + e.getMessage());
+        }
+        return null;
     }
 
     /** Sum of earnings for the current month (used for dashboard) */

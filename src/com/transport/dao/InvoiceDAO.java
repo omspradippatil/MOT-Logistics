@@ -104,6 +104,58 @@ public class InvoiceDAO {
         return invoices;
     }
 
+    /** Retrieve invoices associated with a specific driver */
+    public List<Invoice> getInvoicesByDriver(int driverId) {
+        List<Invoice> invoices = new ArrayList<>();
+        String sql = "SELECT i.*, c.company_name, d.driver_name, v.registration_number " +
+                     "FROM invoice i " +
+                     "JOIN company c ON i.company_id = c.id " +
+                     "LEFT JOIN driver d ON i.driver_id = d.id " +
+                     "LEFT JOIN vehicle v ON i.vehicle_id = v.id " +
+                     "WHERE i.driver_id=? " +
+                     "ORDER BY i.created_at DESC";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, driverId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                invoices.add(mapRow(rs));
+            }
+
+        } catch (SQLException e) {
+            System.out.println("InvoiceDAO.getInvoicesByDriver error: " + e.getMessage());
+        }
+        return invoices;
+    }
+
+    /** Retrieve invoices associated with a specific company */
+    public List<Invoice> getInvoicesByCompany(int companyId) {
+        List<Invoice> invoices = new ArrayList<>();
+        String sql = "SELECT i.*, c.company_name, d.driver_name, v.registration_number " +
+                     "FROM invoice i " +
+                     "JOIN company c ON i.company_id = c.id " +
+                     "LEFT JOIN driver d ON i.driver_id = d.id " +
+                     "LEFT JOIN vehicle v ON i.vehicle_id = v.id " +
+                     "WHERE i.company_id=? " +
+                     "ORDER BY i.created_at DESC";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, companyId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                invoices.add(mapRow(rs));
+            }
+
+        } catch (SQLException e) {
+            System.out.println("InvoiceDAO.getInvoicesByCompany error: " + e.getMessage());
+        }
+        return invoices;
+    }
+
     /** Retrieve an invoice by ID */
     public Invoice getInvoiceById(int id) {
         String sql = "SELECT i.*, c.company_name, d.driver_name, v.registration_number " +

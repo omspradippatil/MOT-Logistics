@@ -17,12 +17,13 @@ import com.transport.util.InvoiceGenerator;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
 /**
- * InvoicePanel.java - Automated Monthly Invoice Engine for MOT Logistics
+ * InvoicePanel.java - Automated Monthly & Annual Invoice Engine for MOT Logistics
  */
 public class InvoicePanel extends JPanel implements Refreshable {
 
@@ -43,6 +44,7 @@ public class InvoicePanel extends JPanel implements Refreshable {
     private ModernButton generateBtn;
     private ModernButton exportPDFBtn;
     private ModernButton exportTxtBtn;
+    private ModernButton bulkExportBtn;
     private ModernButton viewHistoryBtn;
 
     private TripDAO    tripDAO    = new TripDAO();
@@ -55,7 +57,8 @@ public class InvoicePanel extends JPanel implements Refreshable {
     private Invoice    lastGeneratedInvoice;
     private List<Trip> lastTrips;
 
-    private static final String[] MONTH_NAMES = {
+    public static final String[] MONTH_NAMES = {
+        "-- All Months (Annual / Cumulative) --",
         "January","February","March","April","May","June",
         "July","August","September","October","November","December"
     };
@@ -99,7 +102,7 @@ public class InvoicePanel extends JPanel implements Refreshable {
         for (Vehicle v : vehicleDAO.getAllVehicles()) vehicleCombo.addItem(v);
 
         java.util.Calendar cal = java.util.Calendar.getInstance();
-        monthCombo.setSelectedIndex(cal.get(java.util.Calendar.MONTH));
+        monthCombo.setSelectedIndex(cal.get(java.util.Calendar.MONTH) + 1);
         yearCombo.setSelectedItem(String.valueOf(cal.get(java.util.Calendar.YEAR)));
 
         gbc.gridx = 0; gbc.gridy = 0; selPanel.add(new JLabel("Client Company: *"), gbc);
@@ -115,11 +118,12 @@ public class InvoicePanel extends JPanel implements Refreshable {
         gbc.gridx = 0; gbc.gridy = 2; selPanel.add(new JLabel("Billing Year: *"), gbc);
         gbc.gridx = 1; selPanel.add(yearCombo, gbc);
 
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
         btnPanel.setOpaque(false);
         generateBtn    = new ModernButton("⚡ Generate Invoice", UITheme.BRAND_BLUE);
         exportPDFBtn   = new ModernButton("📥 Export PDF", UITheme.AMBER_ORANGE);
         exportTxtBtn   = new ModernButton("📄 Export Text", UITheme.SECONDARY_GRAY);
+        bulkExportBtn  = new ModernButton("📦 Bulk Export All", UITheme.SUCCESS_GREEN);
         viewHistoryBtn = new ModernButton("📜 Invoice Archive", UITheme.SECONDARY_GRAY);
         exportPDFBtn.setEnabled(false);
         exportTxtBtn.setEnabled(false);
@@ -127,6 +131,7 @@ public class InvoicePanel extends JPanel implements Refreshable {
         btnPanel.add(generateBtn);
         btnPanel.add(exportPDFBtn);
         btnPanel.add(exportTxtBtn);
+        btnPanel.add(bulkExportBtn);
         btnPanel.add(viewHistoryBtn);
 
         gbc.gridx = 2; gbc.gridy = 2; gbc.gridwidth = 2;
@@ -167,6 +172,7 @@ public class InvoicePanel extends JPanel implements Refreshable {
         generateBtn.addActionListener(e    -> generateInvoice());
         exportPDFBtn.addActionListener(e   -> exportPDF());
         exportTxtBtn.addActionListener(e   -> exportText());
+        bulkExportBtn.addActionListener(e  -> bulkExportAllInvoices());
         viewHistoryBtn.addActionListener(e -> showInvoiceHistory());
 
         JPanel northPanel = new JPanel(new BorderLayout(0, 10));
@@ -180,12 +186,11 @@ public class InvoicePanel extends JPanel implements Refreshable {
 
     private void styleCombo(JComboBox<?> combo) {
         combo.setFont(UITheme.FONT_BODY);
-        combo.setPreferredSize(new Dimension(180, 32));
+        combo.setPreferredSize(new Dimension(190, 32));
     }
 
     @Override
     public void refreshData() {
-        // Refresh companies dropdown
         Company selectedComp = (Company) companyCombo.getSelectedItem();
         companyCombo.removeAllItems();
         for (Company c : companyDAO.getAllCompanies()) {
@@ -195,7 +200,6 @@ public class InvoicePanel extends JPanel implements Refreshable {
             }
         }
 
-        // Refresh drivers dropdown
         Driver selectedDriver = (Driver) driverCombo.getSelectedItem();
         driverCombo.removeAllItems();
         Driver allDrivers = new Driver();
@@ -209,7 +213,6 @@ public class InvoicePanel extends JPanel implements Refreshable {
             }
         }
 
-        // Refresh vehicles dropdown
         Vehicle selectedVeh = (Vehicle) vehicleCombo.getSelectedItem();
         vehicleCombo.removeAllItems();
         Vehicle allVehicles = new Vehicle();
@@ -234,7 +237,8 @@ public class InvoicePanel extends JPanel implements Refreshable {
         Driver  driver  = (Driver)  driverCombo.getSelectedItem();
         Vehicle vehicle = (Vehicle) vehicleCombo.getSelectedItem();
 
-        int month = monthCombo.getSelectedIndex() + 1;
+        int selectedMonthIdx = monthCombo.getSelectedIndex();
+        int month = (selectedMonthIdx == 0) ? -1 : selectedMonthIdx; // -1 indicates All Months
         int year;
         try {
             year = Integer.parseInt((String) yearCombo.getSelectedItem());
@@ -248,10 +252,11 @@ public class InvoicePanel extends JPanel implements Refreshable {
 
         lastTrips = tripDAO.getTripsForInvoice(company.getId(), driverId, vehicleId, month, year);
 
-        if (lastTrips.isEmpty()) {
+        if (lastTrips == null || lastTrips.isEmpty()) {
+            String periodName = (month <= 0) ? "Year " + year + " (All Months)" : MONTH_NAMES[month] + " " + year;
             JOptionPane.showMessageDialog(this,
                 "No completed trips found for " + company.getCompanyName() +
-                " in " + MONTH_NAMES[month-1] + " " + year + "!",
+                " in " + periodName + "!",
                 "No Records", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
@@ -266,7 +271,7 @@ public class InvoicePanel extends JPanel implements Refreshable {
         invoice.setCompanyName(company.getCompanyName());
         if (driverId > 0) { invoice.setDriverId(driverId); invoice.setDriverName(driver.getDriverName()); }
         if (vehicleId > 0) { invoice.setVehicleId(vehicleId); invoice.setVehicleNumber(vehicle.getRegistrationNumber()); }
-        invoice.setBillingMonth(month);
+        invoice.setBillingMonth(month <= 0 ? 0 : month);
         invoice.setBillingYear(year);
         invoice.setTotalTrips(lastTrips.size());
         invoice.setTotalAmount(totalAmount);
@@ -285,49 +290,65 @@ public class InvoicePanel extends JPanel implements Refreshable {
             paymentDAO.createPayment(payment);
 
             lastGeneratedInvoice = invoice;
-            exportPDFBtn.setEnabled(true);
-            exportTxtBtn.setEnabled(true);
-
-            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
-            invoiceNumberLabel.setText(invoice.getInvoiceNumber());
-            invoiceDateLabel.setText(sdf.format(invoice.getInvoiceDate()));
-            totalTripsLabel.setText(String.valueOf(lastTrips.size()) + " Trips");
-            totalAmountLabel.setText("₹ " + String.format("%,.2f", totalAmount));
-
-            previewTableModel.setRowCount(0);
-            int sr = 1;
-            for (Trip t : lastTrips) {
-                previewTableModel.addRow(new Object[]{
-                    sr++, sdf.format(t.getTripDate()),
-                    t.getSourceLocation(), t.getDestination(),
-                    String.format("%.2f", t.getAmount())
-                });
-            }
+            loadInvoiceIntoPreview(invoice, lastTrips);
 
             // Auto-save copies to invoices/
             InvoiceGenerator.autoSaveInvoice(invoice, lastTrips);
 
+            String periodStr = InvoiceGenerator.getBillingPeriodText(invoice.getBillingMonth(), invoice.getBillingYear());
+
             JOptionPane.showMessageDialog(this,
                 "Invoice " + invoice.getInvoiceNumber() + " successfully generated!\n\n" +
                 "Client        : " + invoice.getCompanyName() + "\n" +
-                "Period        : " + MONTH_NAMES[month-1] + " " + year + "\n" +
+                "Period        : " + periodStr + "\n" +
                 "Trips Billed  : " + lastTrips.size() + "\n" +
                 "Total Payable : ₹ " + String.format("%,.2f", totalAmount) + "\n\n" +
-                "Click 'Export PDF' to save official PDF document,\nor 'Export Text' to save plain text voucher.",
+                "✓ Automatically archived in ./invoices/ directory.\n" +
+                "Click 'Export PDF' to save anywhere or inspect.",
                 "Invoice Finalized", JOptionPane.INFORMATION_MESSAGE);
         } else {
             JOptionPane.showMessageDialog(this, "Failed to save invoice record in database!", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
+    public void loadInvoiceIntoPreview(Invoice invoice, List<Trip> trips) {
+        lastGeneratedInvoice = invoice;
+        lastTrips = trips;
+
+        exportPDFBtn.setEnabled(true);
+        exportTxtBtn.setEnabled(true);
+
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+        invoiceNumberLabel.setText(invoice.getInvoiceNumber());
+        invoiceDateLabel.setText(sdf.format(invoice.getInvoiceDate()));
+        totalTripsLabel.setText((trips != null ? trips.size() : invoice.getTotalTrips()) + " Trips");
+        totalAmountLabel.setText("₹ " + String.format("%,.2f", invoice.getTotalAmount()));
+
+        previewTableModel.setRowCount(0);
+        if (trips != null) {
+            int sr = 1;
+            for (Trip t : trips) {
+                previewTableModel.addRow(new Object[]{
+                    sr++, sdf.format(t.getTripDate()),
+                    t.getSourceLocation(), t.getDestination(),
+                    String.format("%.2f", t.getAmount())
+                });
+            }
+        }
+    }
+
     private void exportPDF() {
         if (lastGeneratedInvoice == null || lastTrips == null) {
-            JOptionPane.showMessageDialog(this, "Please generate an invoice before exporting!", "No Invoice Active", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please generate or select an invoice first!", "No Invoice Active", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setSelectedFile(new java.io.File(lastGeneratedInvoice.getInvoiceNumber() + "_MOT_Logistics.pdf"));
+        File defaultDir = new File("invoices");
+        if (!defaultDir.exists()) defaultDir.mkdirs();
+
+        String fileName = lastGeneratedInvoice.getInvoiceNumber() + "_MOT_Logistics.pdf";
+        JFileChooser fileChooser = new JFileChooser(defaultDir);
+        fileChooser.setSelectedFile(new File(defaultDir, fileName));
         int result = fileChooser.showSaveDialog(this);
 
         if (result == JFileChooser.APPROVE_OPTION) {
@@ -339,14 +360,21 @@ public class InvoicePanel extends JPanel implements Refreshable {
             boolean success = InvoiceGenerator.generatePDF(lastGeneratedInvoice, lastTrips, filePath);
 
             if (success) {
+                // Also ensure saved in invoices/
+                InvoiceGenerator.autoSaveInvoice(lastGeneratedInvoice, lastTrips);
+
                 int openChoice = JOptionPane.showConfirmDialog(this,
-                    "PDF Invoice generated successfully!\n\nSaved to:\n" + filePath + "\n\nWould you like to open the PDF file now?",
+                    "PDF Invoice generated successfully!\n\n" +
+                    "File: " + new File(filePath).getName() + "\n" +
+                    "Path: " + filePath + "\n\n" +
+                    "✓ Also archived in ./invoices/ directory.\n\n" +
+                    "Would you like to open the PDF file now?",
                     "PDF Export Successful", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
 
                 if (openChoice == JOptionPane.YES_OPTION) {
                     try {
                         if (Desktop.isDesktopSupported()) {
-                            Desktop.getDesktop().open(new java.io.File(filePath));
+                            Desktop.getDesktop().open(new File(filePath));
                         }
                     } catch (Exception ex) {
                         System.out.println("Could not launch PDF viewer: " + ex.getMessage());
@@ -360,12 +388,16 @@ public class InvoicePanel extends JPanel implements Refreshable {
 
     private void exportText() {
         if (lastGeneratedInvoice == null || lastTrips == null) {
-            JOptionPane.showMessageDialog(this, "Please generate an invoice before exporting!", "No Invoice Active", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please generate or select an invoice first!", "No Invoice Active", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setSelectedFile(new java.io.File(lastGeneratedInvoice.getInvoiceNumber() + "_MOT_Logistics.txt"));
+        File defaultDir = new File("invoices");
+        if (!defaultDir.exists()) defaultDir.mkdirs();
+
+        String fileName = lastGeneratedInvoice.getInvoiceNumber() + "_MOT_Logistics.txt";
+        JFileChooser fileChooser = new JFileChooser(defaultDir);
+        fileChooser.setSelectedFile(new File(defaultDir, fileName));
         int result = fileChooser.showSaveDialog(this);
 
         if (result == JFileChooser.APPROVE_OPTION) {
@@ -377,27 +409,79 @@ public class InvoicePanel extends JPanel implements Refreshable {
             boolean success = InvoiceGenerator.generateTextInvoice(lastGeneratedInvoice, lastTrips, filePath);
 
             if (success) {
-                JOptionPane.showMessageDialog(this, "Text invoice saved successfully to:\n" + filePath, "File Saved", JOptionPane.INFORMATION_MESSAGE);
+                InvoiceGenerator.autoSaveInvoice(lastGeneratedInvoice, lastTrips);
+                JOptionPane.showMessageDialog(this,
+                    "Text Invoice voucher saved successfully!\n\n" +
+                    "File: " + new File(filePath).getName() + "\n" +
+                    "Path: " + filePath + "\n\n" +
+                    "✓ Also archived in ./invoices/ directory.",
+                    "File Saved", JOptionPane.INFORMATION_MESSAGE);
             } else {
                 JOptionPane.showMessageDialog(this, "Failed to export text invoice file!", "Export Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-    private void showInvoiceHistory() {
+    /** Bulk exports all generated invoices in the database to the invoices/ folder */
+    private void bulkExportAllInvoices() {
         List<Invoice> invoices = invoiceDAO.getAllInvoices();
-        String[] cols = {"Invoice No.", "Date", "Company", "Billing Period", "Total Trips", "Amount (₹)", "Status"};
+        if (invoices.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No invoices found to export!", "Empty Archive", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        int count = 0;
+        File invoicesDir = new File("invoices");
+        if (!invoicesDir.exists()) invoicesDir.mkdirs();
+
+        for (Invoice inv : invoices) {
+            List<Trip> trips = tripDAO.getTripsForInvoice(
+                inv.getCompanyId(),
+                inv.getDriverId(),
+                inv.getVehicleId(),
+                inv.getBillingMonth(),
+                inv.getBillingYear()
+            );
+            InvoiceGenerator.autoSaveInvoice(inv, trips);
+            count++;
+        }
+
+        JOptionPane.showMessageDialog(this,
+            "Bulk Export Completed Successfully!\n\n" +
+            "Total Invoices Exported: " + count + "\n" +
+            "Formats: PDF documents (.pdf) & Text vouchers (.txt)\n" +
+            "Saved Location: " + invoicesDir.getAbsolutePath(),
+            "Bulk Export Success", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    /** Interactive Historical Archive Dialog with Download capabilities */
+    private void showInvoiceHistory() {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "MOT Logistics - Historical Invoice Archive", true);
+        dialog.setSize(920, 520);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout(10, 10));
+
+        JPanel contentPanel = new JPanel(new BorderLayout(8, 8));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        contentPanel.setBackground(UITheme.BG_LIGHT);
+
+        List<Invoice> invoices = invoiceDAO.getAllInvoices();
+        String[] cols = {"ID", "Invoice No.", "Date", "Company", "Driver", "Period", "Trips", "Amount (₹)", "Status"};
         DefaultTableModel model = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
 
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
         for (Invoice inv : invoices) {
+            String period = InvoiceGenerator.getBillingPeriodText(inv.getBillingMonth(), inv.getBillingYear());
+            String driver = inv.getDriverName() != null ? inv.getDriverName() : "Fleet Operations";
             model.addRow(new Object[]{
+                inv.getId(),
                 inv.getInvoiceNumber(),
                 sdf.format(inv.getInvoiceDate()),
                 inv.getCompanyName(),
-                MONTH_NAMES[inv.getBillingMonth()-1] + " " + inv.getBillingYear(),
+                driver,
+                period,
                 inv.getTotalTrips(),
                 "₹ " + String.format("%,.2f", inv.getTotalAmount()),
                 inv.getStatus()
@@ -407,8 +491,91 @@ public class InvoicePanel extends JPanel implements Refreshable {
         JTable histTable = new JTable(model);
         UITheme.styleTable(histTable);
         JScrollPane sp = new JScrollPane(histTable);
-        sp.setPreferredSize(new Dimension(800, 380));
 
-        JOptionPane.showMessageDialog(this, sp, "MOT Logistics - Historical Invoice Archive", JOptionPane.PLAIN_MESSAGE);
+        // Action Toolbar
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 6));
+        actionPanel.setBackground(UITheme.CARD_BG);
+        actionPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(226, 232, 240)));
+
+        ModernButton dlPdfBtn = new ModernButton("📥 Download PDF", UITheme.BRAND_BLUE);
+        ModernButton dlTxtBtn = new ModernButton("📄 Download Text", UITheme.SECONDARY_GRAY);
+        ModernButton viewBtn  = new ModernButton("👁️ View in Ledger", UITheme.AMBER_ORANGE);
+        ModernButton bulkBtn  = new ModernButton("📦 Export All to invoices/", UITheme.SUCCESS_GREEN);
+        ModernButton closeBtn = new ModernButton("Close", UITheme.DANGER_RED);
+
+        actionPanel.add(dlPdfBtn);
+        actionPanel.add(dlTxtBtn);
+        actionPanel.add(viewBtn);
+        actionPanel.add(bulkBtn);
+        actionPanel.add(closeBtn);
+
+        dlPdfBtn.addActionListener(e -> {
+            int row = histTable.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(dialog, "Please select an invoice from the list!", "Select Invoice", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int invId = (int) model.getValueAt(row, 0);
+            Invoice inv = invoiceDAO.getInvoiceById(invId);
+            if (inv != null) {
+                List<Trip> trips = tripDAO.getTripsForInvoice(inv.getCompanyId(), inv.getDriverId(), inv.getVehicleId(), inv.getBillingMonth(), inv.getBillingYear());
+                File dir = new File("invoices");
+                if (!dir.exists()) dir.mkdirs();
+                String path = "invoices/" + inv.getInvoiceNumber() + "_MOT_Logistics.pdf";
+                if (InvoiceGenerator.generatePDF(inv, trips, path)) {
+                    JOptionPane.showMessageDialog(dialog, "PDF Invoice downloaded successfully to:\n" + new File(path).getAbsolutePath(), "Success", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(dialog, "Failed to download PDF invoice!", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        dlTxtBtn.addActionListener(e -> {
+            int row = histTable.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(dialog, "Please select an invoice from the list!", "Select Invoice", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int invId = (int) model.getValueAt(row, 0);
+            Invoice inv = invoiceDAO.getInvoiceById(invId);
+            if (inv != null) {
+                List<Trip> trips = tripDAO.getTripsForInvoice(inv.getCompanyId(), inv.getDriverId(), inv.getVehicleId(), inv.getBillingMonth(), inv.getBillingYear());
+                File dir = new File("invoices");
+                if (!dir.exists()) dir.mkdirs();
+                String path = "invoices/" + inv.getInvoiceNumber() + "_MOT_Logistics.txt";
+                if (InvoiceGenerator.generateTextInvoice(inv, trips, path)) {
+                    JOptionPane.showMessageDialog(dialog, "Text Invoice voucher downloaded successfully to:\n" + new File(path).getAbsolutePath(), "Success", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(dialog, "Failed to download Text invoice!", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        viewBtn.addActionListener(e -> {
+            int row = histTable.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(dialog, "Please select an invoice from the list!", "Select Invoice", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int invId = (int) model.getValueAt(row, 0);
+            Invoice inv = invoiceDAO.getInvoiceById(invId);
+            if (inv != null) {
+                List<Trip> trips = tripDAO.getTripsForInvoice(inv.getCompanyId(), inv.getDriverId(), inv.getVehicleId(), inv.getBillingMonth(), inv.getBillingYear());
+                loadInvoiceIntoPreview(inv, trips);
+                dialog.dispose();
+            }
+        });
+
+        bulkBtn.addActionListener(e -> {
+            bulkExportAllInvoices();
+        });
+
+        closeBtn.addActionListener(e -> dialog.dispose());
+
+        contentPanel.add(sp, BorderLayout.CENTER);
+        contentPanel.add(actionPanel, BorderLayout.SOUTH);
+
+        dialog.add(contentPanel);
+        dialog.setVisible(true);
     }
 }
