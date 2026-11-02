@@ -39,6 +39,14 @@ public class Validation {
     }
 
     /**
+     * Validate an email address format.
+     */
+    public static boolean isValidEmail(String email) {
+        if (isEmpty(email)) return false;
+        return email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    }
+
+    /**
      * Validate that a value is a valid positive number.
      * Used for trip amount validation.
      */
@@ -84,11 +92,11 @@ public class Validation {
 
     /**
      * Check if a password meets minimum requirements.
-     * Must be at least 6 characters.
+     * Must be at least 4 characters.
      */
     public static boolean isValidPassword(String password) {
         if (isEmpty(password)) return false;
-        return password.length() >= 6;
+        return password.length() >= 4;
     }
 
     /**

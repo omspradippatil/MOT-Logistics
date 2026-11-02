@@ -1,157 +1,114 @@
-# 🔍 Document 4: Step-by-Step Code Walkthrough
+# Document 04: Step-by-Step Code Walkthrough
 
-This document breaks down **every single Java file** in the project, explaining its exact purpose, imports, public methods, and internal logic.
-
----
-
-## 1. Application Entry Point: `com.transport.Main`
-
-- **Location:** [`src/com/transport/Main.java`](file:///Users/om/Desktop/Projects/MOT-Logistics/src/com/transport/Main.java)
-- **Role:** Application launcher.
-- **Detailed Execution Sequence:**
-  1. **Prints banner:** Outputs application startup information to the console.
-  2. **DB Pre-Flight Check:** Calls `DatabaseConnection.testConnection()`. If MySQL is offline or credentials fail, it halts execution and presents an informative `JOptionPane.showMessageDialog` with debugging instructions.
-  3. **UI Look and Feel:** Invokes `UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())` so Swing components inherit native macOS/Windows rendering instead of default vintage Metal.
-  4. **Thread Hand-off:** Invokes `SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true))` to ensure all GUI operations occur strictly on the Swing **Event Dispatch Thread (EDT)**.
+This document explains every package, file, class, and core method across the codebase in clear, accessible Core Java terminology.
 
 ---
 
-## 2. Database Connection: `com.transport.db.DatabaseConnection`
+## 1. Package: `com.transport`
 
-- **Location:** [`src/com/transport/db/DatabaseConnection.java`](file:///Users/om/Desktop/Projects/MOT-Logistics/src/com/transport/db/DatabaseConnection.java)
-- **Role:** Centralized MySQL connection manager.
-- **Key Methods:**
-  - `getConnection()`: Loads `com.mysql.cj.jdbc.Driver` dynamically and requests a connection using `DriverManager.getConnection(URL, USER, PASSWORD)`.
-  - `testConnection()`: Opens a brief connection inside try-with-resources and checks `!conn.isClosed()`.
-- **Design Pattern:** Singleton-like utility with a private constructor so it cannot be instantiated.
-
----
-
-## 3. Data Models (`com.transport.model.*`)
-
-Model classes encapsulate database records as clean Java objects.
-
-| Class | Database Table | Key Attributes | Notes |
-|---|---|---|---|
-| [`Admin.java`](file:///Users/om/Desktop/Projects/MOT-Logistics/src/com/transport/model/Admin.java) | `admin` | `id`, `username`, `password`, `fullName` | Stores admin session |
-| [`Company.java`](file:///Users/om/Desktop/Projects/MOT-Logistics/src/com/transport/model/Company.java) | `company` | `id`, `companyName`, `address`, `contactNumber`, `gstNumber` | `toString()` returns `companyName` for JComboBox |
-| [`Driver.java`](file:///Users/om/Desktop/Projects/MOT-Logistics/src/com/transport/model/Driver.java) | `driver` | `id`, `driverName`, `mobileNumber`, `licenceNumber`, `username`, `password`, `isActive` | `toString()` returns `driverName` for JComboBox |
-| [`Vehicle.java`](file:///Users/om/Desktop/Projects/MOT-Logistics/src/com/transport/model/Vehicle.java) | `vehicle` | `id`, `registrationNumber`, `vehicleType`, `driverId`, `driverName`, `status` | Contains `driverName` fetched via JOIN |
-| [`Trip.java`](file:///Users/om/Desktop/Projects/MOT-Logistics/src/com/transport/model/Trip.java) | `trip` | `id`, `tripCode`, `tripDate`, `companyId`, `companyName`, `driverId`, `driverName`, `vehicleId`, `vehicleNumber`, `sourceLocation`, `destination`, `amount`, `remarks` | Full composite trip entity with resolved foreign names |
-| [`Invoice.java`](file:///Users/om/Desktop/Projects/MOT-Logistics/src/com/transport/model/Invoice.java) | `invoice` | `id`, `invoiceNumber`, `invoiceDate`, `companyId`, `companyName`, `driverId`, `vehicleId`, `billingMonth`, `billingYear`, `totalTrips`, `totalAmount`, `status` | Aggregated invoice representation |
-| [`Payment.java`](file:///Users/om/Desktop/Projects/MOT-Logistics/src/com/transport/model/Payment.java) | `payment` | `id`, `invoiceId`, `invoiceNumber`, `companyName`, `totalAmount`, `amountReceived`, `remainingAmount`, `paymentDate`, `paymentStatus`, `notes` | Tracks settlement status (`Pending`, `Partially Paid`, `Paid`) |
+### `Main.java`
+- **Purpose:** Entry point of the entire application (`public static void main(String[] args)`).
+- **Execution Flow:**
+  1. Sets modern cross-platform Look and Feel (`UIManager.setLookAndFeel`).
+  2. Verifies MySQL database connectivity via `DatabaseConnection.testConnection()`.
+  3. Launches `LoginFrame` on the Swing Event Dispatch Thread (`SwingUtilities.invokeLater`).
 
 ---
 
-## 4. Data Access Objects (`com.transport.dao.*`)
+## 2. Package: `com.transport.model`
+POJO (Plain Old Java Object) entity models using standard **Encapsulation** (private fields, public getters, and public setters).
 
-DAOs encapsulate all SQL statements and bridge MySQL tables with Java models.
+| Class | Primary Responsibility |
+|---|---|
+| `Admin.java` | Represents a logged-in Company Administrator session, holding company ID, company name, admin contact, and credentials. |
+| `Company.java` | Model representing a corporate client company profile. |
+| `Driver.java` | Model representing an independent commercial driver or vehicle owner. |
+| `DriverCompanySummary.java` | Data Transfer Object (DTO) capturing driver name, vehicle plates used, and trip count for a specific company. |
+| `Vehicle.java` | Commercial fleet vehicle model with registration number, vehicle type, and driver assignment. |
+| `Trip.java` | Daily operational activity model containing trip ID, date, company ID, driver ID, vehicle ID, route, goods description, amount, and status. |
+| `Invoice.java` | Monthly transport invoice model supporting both Company-wide billing and Driver-wise statements. |
+| `Payment.java` | Financial settlement model recording received amounts, remaining balances, payment dates, and settlement status. |
+
+---
+
+## 3. Package: `com.transport.dao` (Data Access Objects)
+Handles all relational database transactions using parameterized JDBC `PreparedStatement` to ensure security against SQL injection.
 
 ### `AdminDAO.java`
-- `login(String username, String password)`: Authenticates against `admin` table; returns hydrated `Admin` object or `null`.
-
-### `CompanyDAO.java`
-- `addCompany(Company company)`: Executes `INSERT INTO company ...`.
-- `updateCompany(Company company)`: Updates address, contact, and GST.
-- `deleteCompany(int id)`: Removes company by ID.
-- `getAllCompanies()`: Returns `List<Company>` sorted by name.
-- `getCompanyById(int id)`: Fetches a single company.
+- `login(String usernameOrEmail, String password)`: Authenticates against the `company` table using username or email and returns a fully populated `Admin` tenant instance.
+- `registerCompany(Company c)`: Inserts a newly registered company into the database.
+- `updateCompanyProfile(Admin a)`: Updates company contact details, address, and GST number.
+- `resetPassword(String usernameOrEmail, String newPassword)`: Recovers and updates password for forgot-password workflows.
 
 ### `DriverDAO.java`
-- `login(String username, String password)`: Checks password and ensures `is_active = 1`.
-- `addDriver(Driver driver)`: Registers a driver with default `is_active = 1`.
-- `updateDriver(Driver driver)`: Edits profile, phone number, and password.
-- `deleteDriver(int id)`: Safely unassigns linked vehicles and deletes driver account (blocked if trips exist).
-- `setDriverActive(int driverId, boolean active)`: Enables/disables access without deleting trip audit history.
-- `getAllDrivers()`: Lists all drivers for the admin management table.
-- `getActiveDrivers()`: Filters drivers eligible for vehicle assignment.
+- `login(String usernameOrEmail, String password)`: Authenticates driver accounts against `driver` table where `is_active = 1`.
+- `registerDriverWithVehicle(Driver d, String regNo, String type)`: Atomic multi-table database transaction inserting a driver and their primary vehicle.
+- `getDriversForCompany(int companyId)`: SQL aggregation query returning all drivers who completed trips for that company along with their vehicle plates and total trips.
+- `updateProfile(int driverId, String mobile, String email, String password)`: Self-service profile updates.
 
 ### `VehicleDAO.java`
-- `addVehicle(Vehicle vehicle)`: Registers new commercial vehicle (Tempo, Pickup, etc.).
-- `updateVehicle(Vehicle vehicle)`: Reassigns vehicle or updates registration.
-- `deleteVehicle(int id)`: Deletes unlinked vehicle records.
-- `getAllVehicles()`: Executes `LEFT JOIN driver` to retrieve both vehicle and driver name in a single pass.
-- `getVehiclesByDriver(int driverId)`: Pulls only vehicles assigned to the logged-in driver for the trip form.
+- `getVehiclesByDriver(int driverId)`: Retrieves commercial vehicles owned or operated by a specific driver.
+- `getVehiclesByCompany(int companyId)`: Queries distinct vehicles that have hauled cargo for a specific company.
+- `addVehicle(Vehicle v)`: Registers a new vehicle under a driver's fleet.
 
-### `TripDAO.java` ⭐
-- `generateTripCode()`: Uses `COUNT(*) + 1` formatted as `TRIP%03d` (e.g. `TRIP001`, `TRIP002`).
-- `addTrip(Trip trip)`: Saves daily trip submitted by driver.
-- `updateTrip(Trip trip)`: Admin correction of date, destination, or amount.
-- `deleteTrip(int id)`: Removes accidental duplicate trips.
-- `getTripsForInvoice(...)`: Dynamic query fetching trips for a company in a specified month and year.
-- `getTripsByFilter(...)`: Multi-field filter query supporting driver, company, month, and year.
-- `getCurrentMonthTotal()`: Computes gross revenue for current month using `MONTH(CURDATE())`.
-- `getTotalTripCount()`: Total trips recorded since inception.
+### `TripDAO.java`
+- `generateTripCode()`: Auto-generates sequential IDs (e.g., `TRIP001`, `TRIP002`).
+- `addTrip(Trip t)`: Persists daily trips with cargo goods description and status.
+- `getTripsByCompany(int companyId, int driverId, int vehicleId, int month, int year, String search)`: Strictly company-scoped query ensuring no cross-company data leakage.
+- `getTripsByDriver(int driverId, int companyId, int vehicleId, int month, int year, String search)`: Driver-scoped query across all or specific companies.
+- `getCompanyStats(int companyId)`: Aggregates trips, drivers, vehicles, monthly billing, paid amounts, and pending balances for that specific company.
+- `getDriverStats(int driverId)`: Aggregates driver trips, companies worked with, total lifetime earnings, and pending balances.
 
 ### `InvoiceDAO.java`
-- `generateInvoiceNumber()`: Auto-increments formatted sequence like `INV-0001`.
-- `saveInvoice(Invoice invoice)`: Records monthly billing invoice.
-- `getLastInsertedInvoiceId()`: Returns the auto-increment ID to link into `payment`.
-- `getAllInvoices()`: Historical invoice log with company and driver metadata.
+- `generateInvoiceNumber()`: Generates sequential invoice identifiers (e.g., `INV-2026-001`).
+- `saveInvoice(Invoice inv)`: Inserts company or driver monthly invoices.
+- `recordPayment(int invoiceId, int companyId, double amount, String notes, Date date)`: Updates invoice `amount_paid`, recalculates `remaining_amount`, updates status (`Paid` / `Partially Paid` / `Pending`), and logs transaction in `payment` table.
+- `getInvoicesByCompany(int companyId)`: Returns invoices for the company admin.
+- `getInvoicesByDriver(int driverId)`: Returns invoices for the driver portal.
 
 ### `PaymentDAO.java`
-- `createPayment(Payment payment)`: Auto-creates a `Pending` payment row when an invoice is generated.
-- `updatePayment(Payment payment)`: Updates amount collected, updates remaining balance, and sets status to `Partially Paid` or `Paid`.
-- `getAllPayments()`: Full financial receivable ledger.
-- `getTotalPendingAmount()`: Sum of all outstanding receivables for the dashboard.
+- `getPaymentsByCompany(int companyId)`: Company-scoped payment audit records.
+- `getPendingAmountByCompany(int companyId)`: Calculates total unpaid receivables.
 
 ---
 
-## 5. User Interface Classes (`com.transport.ui.*`)
-
-### `LoginFrame.java`
-- Dual-tab authentication (`JTabbedPane`).
-- Redirects authenticated admins to `AdminDashboard` and drivers to `DriverDashboard`.
-
-### `AdminDashboard.java`
-- Houses 7 navigation tabs:
-  1. **Dashboard:** Displays 6 real-time stat cards (Companies, Drivers, Vehicles, Total Trips, Month Earnings, Pending Balance).
-  2. **Companies:** Embedded `CompanyPanel`.
-  3. **Drivers:** Embedded `DriverPanel`.
-  4. **Vehicles:** Embedded `VehiclePanel`.
-  5. **Trip History:** Embedded `TripHistoryPanel(isAdmin = true, driverId = -1)`.
-  6. **Invoice:** Embedded `InvoicePanel`.
-  7. **Payments:** Embedded `PaymentPanel`.
-
-### `DriverDashboard.java`
-- Focused environment for field drivers:
-  1. **New Trip Entry:** Embedded `TripEntryPanel(driver)`.
-  2. **My Trip History:** Embedded `TripHistoryPanel(isAdmin = false, driverId = driver.getId())`.
-
-### `CompanyPanel.java`, `DriverPanel.java`, `VehiclePanel.java`
-- Form area at top (`GridBagLayout`) for Add/Update/Delete operations.
-- Data table at center (`JTable` inside `JScrollPane`) with selection listeners that populate form fields on row click.
-
-### `TripEntryPanel.java`
-- Auto-generates `tripCode` and locks the field.
-- Pulls assigned vehicles for the logged-in driver.
-- Validates source, destination, and amount before persisting.
-
-### `TripHistoryPanel.java`
-- Dynamic search bar with Month, Year, Driver, and Company filters.
-- Reused by both Admin (who sees all drivers and can delete) and Driver (who only sees their own trips).
-
-### `InvoicePanel.java`
-- Generates monthly billing.
-- Aggregates trip amounts, previews trip rows in a `JTable`, saves to the database, and enables one-click text/PDF export.
-
-### `PaymentPanel.java`
-- Color-coded JTable: Green for Paid, Yellow for Partially Paid, Red for Pending.
-- Form to record payments and recalculate remaining balance automatically.
-
----
-
-## 6. Utilities (`com.transport.util.*`)
-
-### `Validation.java`
-- `isEmpty(String text)`
-- `isValidMobile(String mobile)`: Validates 10-digit Indian numbers starting with 6, 7, 8, or 9.
-- `isValidAmount(String amount)`: Validates positive numeric amounts.
-- `isValidVehicleNumber(String regNo)`: Checks vehicle plate formatting.
-- `isValidGST(String gst)`: Validates 15-character GST numbers.
+## 4. Package: `com.transport.util`
 
 ### `InvoiceGenerator.java`
-- `generatePDF(Invoice, List<Trip>, filePath)`: Generates valid, standard PDF 1.4 documents natively using pure Core Java with headers, gridlines, itemized billing rows, and signature blocks.
-- `generateTextInvoice(Invoice, List<Trip>, filePath)`: Generates clean, tabulated text billing files.
-- `autoSaveInvoice(Invoice, List<Trip>)`: Automatically generates both `.pdf` and `.txt` copies in the `invoices/` directory.
-- Includes header, client info, billing period, tabulated trip ledger, total calculations, and dual signature blocks.
+- **Pure Core Java PDF 1.4 Engine:** Uses native byte streaming (`ByteArrayOutputStream`) to construct standards-compliant PDF 1.4 binary objects, dictionaries, pages, fonts, xref cross-reference tables, and trailers. Zero external libraries required.
+- `generatePDF(Invoice invoice, List<Trip> trips, String filePath)`: Multi-page monthly transport invoice with itemized table, cargo descriptions, totals, and signatures.
+- `generateTripReceiptPDF(Trip trip, String filePath)`: Official single-trip delivery receipt and cash voucher.
+- `generateTripsSummaryPDF(List<Trip> trips, String title, String subtitle, String filePath)`: Consolidated audit reports.
+
+### `Validation.java`
+- Static input sanitization routines: `isValidMobile`, `isValidEmail`, `isValidAmount`, `isValidVehicleNumber`, `isValidUsername`, `isValidPassword`, and `isValidGST`.
+
+---
+
+## 5. Package: `com.transport.ui` (Java Swing Interface)
+
+### UI Foundations
+- `UITheme.java`: Central design system defining color palettes (Deep Navy, Slate Gray, Emerald Green, Indigo Accent), fonts, table stylers, and card borders.
+- `ModernButton.java`: Custom `JButton` overriding `paintComponent` with anti-aliasing, rounded borders, and state-aware hover effects.
+- `Refreshable.java`: Interface triggering data reload across tabs when switched.
+
+### Authentication Screen
+- `LoginFrame.java`: Two distinct tabbed workflows: **Company Admin** and **Driver / Vehicle Owner**. Includes self-service registration and password reset dialogs.
+
+### Company Admin Workstation (`AdminDashboard.java`)
+- **Dashboard:** Company-specific metrics cards and recent operational trips table.
+- `CompanyDriversPanel.java`: Roster of drivers for this company (`Driver Name | Vehicle Number | Total Trips`). Includes a prominent **"➕ Add Driver to Company"** button.
+- `AddDriverToCompanyDialog.java`: Interactive dialog enabling Company Admins to register a brand new commercial driver and vehicle linked to their company, or assign an active fleet driver.
+- `DriverTripsDetailDialog.java`: Displays ONLY trips completed by the selected driver for this company with a prominent **Download Invoice** button.
+- `CompanyTripManagementPanel.java`: Company trips ledger with driver, vehicle, month, year, and location search filters.
+- `CompanyMonthlyInvoicePanel.java`: Month/Year selector, real-time trip preview, monthly invoice generation, and PDF download.
+- `CompanyPaymentManagementPanel.java`: Invoice receivables tracking and payment settlement dialog.
+- `CompanyProfilePanel.java`: Company profile and password management.
+
+### Driver & Vehicle Owner Portal (`DriverDashboard.java`)
+- **Dashboard:** Lifetime earnings, current month trips, companies worked with, and payment statuses.
+- `TripEntryPanel.java`: Daily trip entry with company dropdown, vehicle dropdown, route, cargo description, amount, and remarks.
+- `DriverTripHistoryPanel.java`: Complete cross-company trips history with receipt PDF export.
+- `DriverVehiclesPanel.java`: View registered fleet and add new commercial vehicles.
+- `DriverMonthlyInvoicesPanel.java`: Company + Month selector, trip earnings preview, driver invoice generation, and PDF download.
+- `DriverProfilePanel.java`: Self-service driver contact details and password updates.

@@ -1,67 +1,75 @@
 -- ============================================================
--- MOT Logistics - Database Schema & Rich Seed Data
+-- MOT TRANS - Transport Trip Management & Automated Invoice Generation System
+-- Multi-Tenant Database Schema & Seed Data
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS transport_db;
 USE transport_db;
 
--- -----------------------------------------------
--- Table: admin
--- Stores admin login credentials
--- -----------------------------------------------
-CREATE TABLE IF NOT EXISTS admin (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    username    VARCHAR(50) UNIQUE NOT NULL,
-    password    VARCHAR(100) NOT NULL,
-    full_name   VARCHAR(100)
-);
+-- ------------------------------------------------------------
+-- Drop existing tables to establish clean updated relational structure
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS payment;
+DROP TABLE IF EXISTS invoice;
+DROP TABLE IF EXISTS trip;
+DROP TABLE IF EXISTS vehicle;
+DROP TABLE IF EXISTS driver;
+DROP TABLE IF EXISTS company;
+DROP TABLE IF EXISTS admin;
 
--- -----------------------------------------------
--- Table: company
--- Stores companies that MOT Logistics serves
--- -----------------------------------------------
-CREATE TABLE IF NOT EXISTS company (
+-- ------------------------------------------------------------
+-- Table: company (Company Admin Tenants)
+-- Each company has its own independent admin login
+-- ------------------------------------------------------------
+CREATE TABLE company (
     id              INT AUTO_INCREMENT PRIMARY KEY,
-    company_name    VARCHAR(100) NOT NULL,
+    company_name    VARCHAR(100) NOT NULL UNIQUE,
+    admin_name      VARCHAR(100) NOT NULL,
+    email           VARCHAR(100) NOT NULL UNIQUE,
+    username        VARCHAR(50)  NOT NULL UNIQUE,
+    password        VARCHAR(100) NOT NULL,
+    contact_number  VARCHAR(20),
     address         VARCHAR(200),
-    contact_number  VARCHAR(15),
     gst_number      VARCHAR(20),
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- -----------------------------------------------
--- Table: driver
--- Stores driver info and login credentials
--- -----------------------------------------------
-CREATE TABLE IF NOT EXISTS driver (
+-- ------------------------------------------------------------
+-- Table: driver (Drivers / Vehicle Owners)
+-- Each driver has an individual login account
+-- ------------------------------------------------------------
+CREATE TABLE driver (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     driver_name     VARCHAR(100) NOT NULL,
-    mobile_number   VARCHAR(15),
-    licence_number  VARCHAR(20),
-    username        VARCHAR(50) UNIQUE NOT NULL,
+    mobile_number   VARCHAR(20)  NOT NULL,
+    email           VARCHAR(100),
+    licence_number  VARCHAR(30)  NOT NULL,
+    username        VARCHAR(50)  NOT NULL UNIQUE,
     password        VARCHAR(100) NOT NULL,
-    is_active       TINYINT(1) DEFAULT 1,
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    is_active       TINYINT(1)   DEFAULT 1,
+    company_id      INT DEFAULT NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE SET NULL
 );
 
--- -----------------------------------------------
--- Table: vehicle
--- Stores vehicle info and driver assignment
--- -----------------------------------------------
-CREATE TABLE IF NOT EXISTS vehicle (
+-- ------------------------------------------------------------
+-- Table: vehicle (Commercial Vehicles)
+-- Multiple vehicles can be operated/owned by drivers
+-- ------------------------------------------------------------
+CREATE TABLE vehicle (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
     registration_number VARCHAR(20) UNIQUE NOT NULL,
-    vehicle_type        VARCHAR(50),
+    vehicle_type        VARCHAR(50) NOT NULL,
     driver_id           INT,
     status              VARCHAR(20) DEFAULT 'Active',
     FOREIGN KEY (driver_id) REFERENCES driver(id) ON DELETE SET NULL
 );
 
--- -----------------------------------------------
--- Table: trip
--- Stores daily trip records entered by drivers
--- -----------------------------------------------
-CREATE TABLE IF NOT EXISTS trip (
+-- ------------------------------------------------------------
+-- Table: trip (Daily Operational Trips)
+-- Contains both company_id and driver_id for strict isolation
+-- ------------------------------------------------------------
+CREATE TABLE trip (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
     trip_code           VARCHAR(20) UNIQUE NOT NULL,
     trip_date           DATE NOT NULL,
@@ -70,19 +78,21 @@ CREATE TABLE IF NOT EXISTS trip (
     vehicle_id          INT NOT NULL,
     source_location     VARCHAR(100) NOT NULL,
     destination         VARCHAR(100) NOT NULL,
+    goods_description   VARCHAR(200),
     amount              DECIMAL(10,2) NOT NULL,
+    trip_status         VARCHAR(20) DEFAULT 'Completed',
     remarks             VARCHAR(200),
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (company_id) REFERENCES company(id),
-    FOREIGN KEY (driver_id)  REFERENCES driver(id),
-    FOREIGN KEY (vehicle_id) REFERENCES vehicle(id)
+    FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE,
+    FOREIGN KEY (driver_id)  REFERENCES driver(id)  ON DELETE RESTRICT,
+    FOREIGN KEY (vehicle_id) REFERENCES vehicle(id) ON DELETE RESTRICT
 );
 
--- -----------------------------------------------
--- Table: invoice
--- Stores generated monthly invoices
--- -----------------------------------------------
-CREATE TABLE IF NOT EXISTS invoice (
+-- ------------------------------------------------------------
+-- Table: invoice (Monthly Billing Invoices)
+-- Supports both Company-wide and Driver-wise monthly invoices
+-- ------------------------------------------------------------
+CREATE TABLE invoice (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     invoice_number  VARCHAR(20) UNIQUE NOT NULL,
     invoice_date    DATE NOT NULL,
@@ -93,147 +103,87 @@ CREATE TABLE IF NOT EXISTS invoice (
     billing_year    INT NOT NULL,
     total_trips     INT DEFAULT 0,
     total_amount    DECIMAL(10,2) DEFAULT 0.00,
+    amount_paid     DECIMAL(10,2) DEFAULT 0.00,
+    remaining_amount DECIMAL(10,2) DEFAULT 0.00,
+    invoice_type    VARCHAR(20) DEFAULT 'Company',
     status          VARCHAR(20) DEFAULT 'Generated',
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (company_id) REFERENCES company(id)
+    FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE,
+    FOREIGN KEY (driver_id)  REFERENCES driver(id)  ON DELETE SET NULL
 );
 
--- -----------------------------------------------
--- Table: payment
--- Stores payment status for each invoice
--- -----------------------------------------------
-CREATE TABLE IF NOT EXISTS payment (
+-- ------------------------------------------------------------
+-- Table: payment (Invoice Settlements & Transactions)
+-- ------------------------------------------------------------
+CREATE TABLE payment (
     id               INT AUTO_INCREMENT PRIMARY KEY,
     invoice_id       INT NOT NULL UNIQUE,
+    company_id       INT NOT NULL,
     total_amount     DECIMAL(10,2) NOT NULL,
     amount_received  DECIMAL(10,2) DEFAULT 0.00,
     remaining_amount DECIMAL(10,2) DEFAULT 0.00,
     payment_date     DATE,
     payment_status   VARCHAR(20) DEFAULT 'Pending',
     notes            VARCHAR(200),
-    FOREIGN KEY (invoice_id) REFERENCES invoice(id)
+    FOREIGN KEY (invoice_id) REFERENCES invoice(id) ON DELETE CASCADE,
+    FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE
 );
 
--- -----------------------------------------------
--- 1. Default Admin Account
--- username: admin | password: admin123
--- -----------------------------------------------
-INSERT INTO admin (username, password, full_name)
-VALUES ('admin', 'admin123', 'System Administrator')
-ON DUPLICATE KEY UPDATE full_name='System Administrator';
+-- ============================================================
+-- SEED DATA - EXACT REQUIREMENTS FROM USER PROMPT
+-- ============================================================
 
--- -----------------------------------------------
--- 2. Sample Client Companies
--- -----------------------------------------------
-INSERT INTO company (id, company_name, address, contact_number, gst_number) VALUES
-(1, 'Company A', 'Plot 42, Wagle Estate, Thane, Maharashtra', '9876543210', '27AABCT1234F1Z5'),
-(2, 'Tata Motors Logistics', 'MIDC Industrial Area, Pune, Maharashtra', '9822012345', '27AAACT2727Q1ZW'),
-(3, 'Reliance Retail Supply Hub', 'Logistics Park, Bhiwandi, Maharashtra', '9819056789', '27AABCR8901N1ZK'),
-(4, 'Mahindra Logistics Ltd', 'Goregaon East, Mumbai, Maharashtra', '9833098765', '27AABCM5432P1ZX'),
-(5, 'Flipkart Wholesale Depot', 'Kalyan-Bhiwandi Road, Thane', '9821034567', '27AABCF9876M1ZQ'),
-(6, 'Godrej Consumer Products', 'Vikhroli West, Mumbai, Maharashtra', '9811076543', '27AAACG1122D1ZT'),
-(7, 'Amazon India Fulfillment', 'Logistics Park Highway 3, Bhiwandi', '9820011223', '27AAACA9999M1ZQ'),
-(8, 'Delhivery Express Freight', 'Taloja MIDC, Navi Mumbai', '9833445566', '27AABCD8888K1ZP'),
-(9, 'Blue Dart Aviation Logistics', 'Cargo Complex, Andheri East, Mumbai', '9811223344', '27AABCB7777J1ZO'),
-(10, 'DHL Global Forwarding', 'Kalyan Industrial Zone, Thane', '9844556677', '27AABCD6666H1ZN')
-ON DUPLICATE KEY UPDATE company_name=VALUES(company_name);
+-- 1. SEED COMPANIES (Company Admins)
+-- Login credentials for each company
+INSERT INTO company (id, company_name, admin_name, email, username, password, contact_number, address, gst_number) VALUES
+(1, 'Om Sai',      'Rajesh Patil',   'admin@omsai.com',  'omsai',  'omsai123',  '9822011223', 'Plot 42, MIDC Industrial Area, Wada, Maharashtra',     '27AABCO1234F1Z1'),
+(2, 'Oracle',      'Sanjay Deshmukh', 'admin@oracle.com', 'oracle', 'oracle123', '9833099887', 'Cyber Park, Pokhran Road No 2, Thane West, Mumbai',    '27AAACT9876Q1Z9'),
+(3, 'Company XYZ', 'Vikrant Mehta',  'admin@xyz.com',    'xyz',    'xyz123',    '9819077665', 'Building B, Logistics Super Hub, Bhiwandi, Maharashtra', '27AABCX5566M1Z4');
 
--- -----------------------------------------------
--- 3. Sample Drivers (all password: <username>123)
--- -----------------------------------------------
-INSERT INTO driver (id, driver_name, mobile_number, licence_number, username, password, is_active) VALUES
-(1, 'Rahul Sharma', '9876500001', 'MH0420180012345', 'rahul', 'rahul123', 1),
-(2, 'Amit Singh', '9876500002', 'MH1220190023456', 'amit', 'amit123', 1),
-(3, 'Vikram Shinde', '9876500003', 'MH4320200034567', 'vikram', 'vikram123', 1),
-(4, 'Deepak Yadav', '9876500004', 'MH0220210045678', 'deepak', 'deepak123', 1),
-(5, 'Ramesh Patil', '9876500005', 'MH4620170056789', 'ramesh', 'ramesh123', 1),
-(6, 'Suresh Jadhav', '9876500006', 'MH0320190067890', 'suresh', 'suresh123', 1),
-(7, 'Ganesh More', '9876500007', 'MH1420210078901', 'ganesh', 'ganesh123', 1),
-(8, 'Kailash Verma', '9876500008', 'MH0620200089012', 'kailash', 'kailash123', 1),
-(9, 'Manish Tiwari', '9876500009', 'MH0520220090123', 'manish', 'manish123', 1)
-ON DUPLICATE KEY UPDATE driver_name=VALUES(driver_name);
+-- 2. SEED DRIVERS (Vehicle Owners & Operators)
+INSERT INTO driver (id, driver_name, mobile_number, email, licence_number, username, password, is_active) VALUES
+(1, 'Rahul', '9876500001', 'rahul@transport.com', 'MH4820180012345', 'rahul', 'rahul123', 1),
+(2, 'Amit',  '9876500002', 'amit@transport.com',  'MH4820190023456', 'amit',  'amit123',  1),
+(3, 'Sagar', '9876500003', 'sagar@transport.com', 'MH4820200034567', 'sagar', 'sagar123', 1);
 
--- -----------------------------------------------
--- 4. Sample Fleet Vehicles
--- -----------------------------------------------
+-- 3. SEED VEHICLES
 INSERT INTO vehicle (id, registration_number, vehicle_type, driver_id, status) VALUES
-(1, 'MH-48-AB-1234', 'Tempo', 1, 'Active'),
-(2, 'MH-04-CD-5678', 'Pickup Van', 2, 'Active'),
-(3, 'MH-12-EF-9012', 'Light Commercial Truck', 3, 'Active'),
-(4, 'MH-43-GH-3456', 'Heavy Truck', 4, 'Active'),
-(5, 'MH-46-JK-7890', 'Trailer', 5, 'Active'),
-(6, 'MH-02-XY-4321', 'Tempo', 1, 'Active'),
-(7, 'MH-03-ZZ-9988', 'Container Truck', 6, 'Active'),
-(8, 'MH-14-AA-5544', 'Heavy Trailer', 7, 'Active'),
-(9, 'MH-06-BB-1122', 'Electric Van', 8, 'Active'),
-(10, 'MH-05-CC-3344', 'Refrigerated Van', 9, 'Active')
-ON DUPLICATE KEY UPDATE vehicle_type=VALUES(vehicle_type);
+(1, 'MH-48-AB-1234', 'Tempo',       1, 'Active'),
+(2, 'MH-02-XY-4321', 'Pickup Van',  1, 'Active'),
+(3, 'MH-48-CD-5678', 'Pickup Van',  2, 'Active'),
+(4, 'MH-48-EF-9012', 'Heavy Truck', 3, 'Active'),
+(5, 'MH-04-GH-7890', 'Trailer',     3, 'Active');
 
--- -----------------------------------------------
--- 5. Sample Daily Trip Records
--- (October 2026 & November 2026)
--- -----------------------------------------------
-INSERT INTO trip (id, trip_code, trip_date, company_id, driver_id, vehicle_id, source_location, destination, amount, remarks) VALUES
--- Trips for Company A (Oct 2026)
-(1, 'TRIP001', '2026-10-01', 1, 1, 1, 'Wada Warehouse', 'Thane Godown', 2500.00, 'Standard delivery'),
-(2, 'TRIP002', '2026-10-03', 1, 1, 1, 'Thane Godown', 'Mumbai Central', 3000.00, 'Express distribution'),
-(3, 'TRIP003', '2026-10-05', 1, 1, 1, 'Wada Warehouse', 'Bhiwandi Hub', 2000.00, 'Bulk cartons'),
-(4, 'TRIP004', '2026-10-08', 1, 1, 1, 'Wada Warehouse', 'Palghar Station', 1500.00, 'Local dispatch'),
+-- 4. SEED TRIPS
+-- Exactly matching prompt examples: Rahul works for Om Sai AND Oracle; Amit & Sagar work for Om Sai, Oracle, XYZ.
+INSERT INTO trip (id, trip_code, trip_date, company_id, driver_id, vehicle_id, source_location, destination, goods_description, amount, trip_status, remarks) VALUES
+-- Rahul's trips for Om Sai
+(1,  'TRIP001', '2026-11-01', 1, 1, 1, 'Wada',     'Bhiwandi', 'Machinery Spare Parts',    2500.00, 'Completed', 'On-time delivery'),
+(2,  'TRIP003', '2026-11-05', 1, 1, 1, 'Wada',     'Palghar',  'Raw Material Barrels',     2000.00, 'Completed', 'Standard run'),
+(3,  'TRIP005', '2026-11-10', 1, 1, 1, 'Wada',     'Thane',    'Electrical Switchgear',    2800.00, 'Completed', 'Fragile cargo handled safely'),
 
--- Trips for Tata Motors (Oct 2026)
-(5, 'TRIP005', '2026-10-10', 2, 3, 3, 'Pune Plant', 'Bhiwandi Logistics Hub', 5500.00, 'Auto parts transit'),
-(6, 'TRIP006', '2026-10-14', 2, 3, 3, 'Bhiwandi Logistics Hub', 'Nashik Depot', 4800.00, 'Chassis components'),
-(7, 'TRIP007', '2026-10-18', 2, 4, 4, 'Pune Plant', 'JNPT Port, Navi Mumbai', 7200.00, 'Export container haulage'),
+-- Rahul's trips for Oracle
+(4,  'TRIP002', '2026-11-03', 2, 1, 1, 'Thane',    'Mumbai',   'Server Rack Assemblies',   3000.00, 'Completed', 'High priority delivery'),
+(5,  'TRIP004', '2026-11-08', 2, 1, 1, 'Mumbai',   'Thane',    'Computer Hardware Crates', 1500.00, 'Completed', 'Return haul'),
+(6,  'TRIP006', '2026-11-12', 2, 1, 2, 'Thane',    'Navi Mumbai','Office Workstations',    2200.00, 'Completed', 'Bulk cargo'),
 
--- Trips for Reliance Retail (Oct 2026)
-(8, 'TRIP008', '2026-10-12', 3, 2, 2, 'Bhiwandi Supply Hub', 'Kalyan Mall', 2200.00, 'FMCG stock delivery'),
-(9, 'TRIP009', '2026-10-16', 3, 2, 2, 'Bhiwandi Supply Hub', 'Vashi APMC', 2800.00, 'Grocery replenishment'),
-(10, 'TRIP010', '2026-10-22', 3, 2, 2, 'Bhiwandi Supply Hub', 'Panvel Superstore', 3100.00, 'Perishables transit'),
+-- Amit's trips
+(7,  'TRIP007', '2026-11-02', 1, 2, 3, 'Bhiwandi', 'Wada',     'Packaging Materials',      2200.00, 'Completed', 'Bulk delivery'),
+(8,  'TRIP008', '2026-11-06', 2, 2, 3, 'Thane',    'Vashi',    'Networking Equipment',     2400.00, 'Completed', 'Secure transport'),
+(9,  'TRIP009', '2026-11-09', 3, 2, 3, 'Bhiwandi', 'Pune',     'FMCG Wholesale Pallets',   5500.00, 'Completed', 'Long haul run'),
 
--- Trips for Mahindra Logistics (Oct 2026)
-(11, 'TRIP011', '2026-10-20', 4, 5, 5, 'Chakan, Pune', 'JNPT Port', 8500.00, 'Heavy industrial machinery'),
-(12, 'TRIP012', '2026-10-25', 4, 4, 4, 'Thane Hub', 'Vapi Industrial Zone', 6200.00, 'Steel coils haulage'),
+-- Sagar's trips
+(10, 'TRIP010', '2026-11-04', 1, 3, 4, 'Wada',     'JNPT Port','Heavy Industrial Coils',   6500.00, 'Completed', 'Port container clearance'),
+(11, 'TRIP011', '2026-11-07', 2, 3, 4, 'Thane',    'Pune',     'Datacenter Cooling Units', 5800.00, 'Completed', 'Escorted heavy haul'),
+(12, 'TRIP012', '2026-11-11', 3, 3, 5, 'Bhiwandi', 'Nashik',   'Automotive Stamping Dies', 4800.00, 'Completed', 'Inter-city haulage');
 
--- Trips for Amazon Fulfillment (Oct 2026)
-(13, 'TRIP013', '2026-10-24', 7, 6, 7, 'Bhiwandi Fulfillment Hub', 'Pune Sort Center', 6800.00, 'Festival bulk stock delivery'),
-(14, 'TRIP014', '2026-10-27', 7, 6, 7, 'Bhiwandi Fulfillment Hub', 'Nashik Delivery Station', 5400.00, 'E-commerce packages linehaul'),
-(15, 'TRIP015', '2026-10-29', 7, 6, 7, 'Bhiwandi Fulfillment Hub', 'Kurla Hub, Mumbai', 3600.00, 'Same-day delivery dispatch'),
+-- 5. SEED INVOICES & PAYMENTS
+-- Company-wise invoice for Om Sai (November 2026)
+INSERT INTO invoice (id, invoice_number, invoice_date, company_id, driver_id, vehicle_id, billing_month, billing_year, total_trips, total_amount, amount_paid, remaining_amount, invoice_type, status) VALUES
+(1, 'INV-2026-001', '2026-11-15', 1, NULL, NULL, 11, 2026, 5, 16000.00, 10000.00, 6000.00, 'Company', 'Partially Paid'),
+(2, 'INV-2026-002', '2026-11-15', 2, NULL, NULL, 11, 2026, 5, 14900.00, 14900.00, 0.00,    'Company', 'Paid');
 
--- Trips for Delhivery Freight (Oct 2026)
-(16, 'TRIP016', '2026-10-22', 8, 7, 8, 'Taloja MIDC', 'JNPT Container Terminal', 8200.00, 'Heavy container export movement'),
-(17, 'TRIP017', '2026-10-26', 8, 7, 8, 'Taloja MIDC', 'Chakan Automotive Hub', 7500.00, 'Industrial components run'),
-
--- Current Month Trips (November 2026)
-(18, 'TRIP018', '2026-11-01', 1, 1, 1, 'Wada Warehouse', 'Thane Godown', 2500.00, 'November first run'),
-(19, 'TRIP019', '2026-11-01', 2, 3, 3, 'Pune Plant', 'Bhiwandi Logistics Hub', 5500.00, 'Priority component transit'),
-(20, 'TRIP020', '2026-11-01', 5, 2, 2, 'Bhiwandi Wholesale', 'Dadar West', 3200.00, 'Apparel crates dispatch'),
-(21, 'TRIP021', '2026-11-01', 9, 8, 9, 'Sahar Air Cargo', 'Bhiwandi Central Depot', 3500.00, 'Express air freight cargo'),
-(22, 'TRIP022', '2026-11-01', 6, 9, 10, 'Vikhroli Plant', 'Panvel Warehouse', 4200.00, 'FMCG temperature controlled haul'),
-(23, 'TRIP023', '2026-11-02', 10, 7, 8, 'Kalyan Zone', 'JNPT Port', 7900.00, 'Global forward ocean freight container'),
-(24, 'TRIP024', '2026-11-02', 7, 6, 7, 'Bhiwandi Hub', 'Thane Godown', 2800.00, 'Morning rush replenishment run'),
-(25, 'TRIP025', '2026-11-02', 3, 2, 2, 'Bhiwandi Supply Hub', 'Kalyan Mall', 2400.00, 'Daily fresh grocery haul')
-ON DUPLICATE KEY UPDATE amount=VALUES(amount);
-
--- -----------------------------------------------
--- 6. Sample Generated Invoices
--- -----------------------------------------------
-INSERT INTO invoice (id, invoice_number, invoice_date, company_id, driver_id, vehicle_id, billing_month, billing_year, total_trips, total_amount, status) VALUES
-(1, 'INV-0001', '2026-10-31', 1, 1, 1, 10, 2026, 4, 9000.00, 'Generated'),
-(2, 'INV-0002', '2026-10-31', 2, 3, 3, 10, 2026, 3, 17500.00, 'Generated'),
-(3, 'INV-0003', '2026-10-31', 3, 2, 2, 10, 2026, 3, 8100.00, 'Generated'),
-(4, 'INV-0004', '2026-10-31', 4, 5, 5, 10, 2026, 2, 14700.00, 'Generated'),
-(5, 'INV-0005', '2026-10-31', 7, 6, 7, 10, 2026, 3, 15800.00, 'Generated'),
-(6, 'INV-0006', '2026-10-31', 8, 7, 8, 10, 2026, 2, 15700.00, 'Generated')
-ON DUPLICATE KEY UPDATE total_amount=VALUES(total_amount);
-
--- -----------------------------------------------
--- 7. Sample Invoice Payments
--- -----------------------------------------------
-INSERT INTO payment (id, invoice_id, total_amount, amount_received, remaining_amount, payment_date, payment_status, notes) VALUES
-(1, 1, 9000.00, 9000.00, 0.00, '2026-10-31', 'Paid', 'NEFT Ref #TXN98721345 settled in full'),
-(2, 2, 17500.00, 10000.00, 7500.00, '2026-10-31', 'Partially Paid', 'Cheque #432101 cleared. Balance due in 15 days'),
-(3, 3, 8100.00, 0.00, 8100.00, NULL, 'Pending', 'Invoice dispatched. Net-30 payment terms'),
-(4, 4, 14700.00, 14700.00, 0.00, '2026-10-31', 'Paid', 'RTGS Ref #MAHINDRA8876 settled in full'),
-(5, 5, 15800.00, 15800.00, 0.00, '2026-11-01', 'Paid', 'Corporate direct deposit #AMZN9912'),
-(6, 6, 15700.00, 8000.00, 7700.00, '2026-11-01', 'Partially Paid', 'First advance installment received via IMPS')
-ON DUPLICATE KEY UPDATE amount_received=VALUES(amount_received);
+-- Payment records for the seeded invoices
+INSERT INTO payment (id, invoice_id, company_id, total_amount, amount_received, remaining_amount, payment_date, payment_status, notes) VALUES
+(1, 1, 1, 16000.00, 10000.00, 6000.00, '2026-11-15', 'Partially Paid', 'Part payment received via RTGS #98124'),
+(2, 2, 2, 14900.00, 14900.00, 0.00,    '2026-11-15', 'Paid',           'Settled in full via Corporate Transfer');

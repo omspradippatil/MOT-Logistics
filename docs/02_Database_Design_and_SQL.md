@@ -1,156 +1,89 @@
-# 🗄️ Document 2: Database Design and SQL Schema
+# Document 02: Database Design & Relational Schema
 
-## Database Name: `transport_db`
+## 1. Database Overview
+The application connects to a local MySQL database named `transport_db`. The relational schema enforces **multi-tenant company isolation** using foreign keys with cascading integrity constraints.
 
----
-
-## 1. Entity Relationship (ER) Diagram
-
-```mermaid
-erDiagram
-    ADMIN {
-        int id PK
-        varchar username UK
-        varchar password
-        varchar full_name
-    }
-
-    COMPANY {
-        int id PK
-        varchar company_name
-        varchar address
-        varchar contact_number
-        varchar gst_number
-        timestamp created_at
-    }
-
-    DRIVER {
-        int id PK
-        varchar driver_name
-        varchar mobile_number
-        varchar licence_number
-        varchar username UK
-        varchar password
-        tinyint is_active
-        timestamp created_at
-    }
-
-    VEHICLE {
-        int id PK
-        varchar registration_number UK
-        varchar vehicle_type
-        int driver_id FK
-        varchar status
-    }
-
-    TRIP {
-        int id PK
-        varchar trip_code UK
-        date trip_date
-        int company_id FK
-        int driver_id FK
-        int vehicle_id FK
-        varchar source_location
-        varchar destination
-        decimal amount
-        varchar remarks
-        timestamp created_at
-    }
-
-    INVOICE {
-        int id PK
-        varchar invoice_number UK
-        date invoice_date
-        int company_id FK
-        int driver_id FK
-        int vehicle_id FK
-        int billing_month
-        int billing_year
-        int total_trips
-        decimal total_amount
-        varchar status
-        timestamp created_at
-    }
-
-    PAYMENT {
-        int id PK
-        int invoice_id FK
-        decimal total_amount
-        decimal amount_received
-        decimal remaining_amount
-        date payment_date
-        varchar payment_status
-        varchar notes
-    }
-
-    COMPANY ||--o{ TRIP : "billed for"
-    DRIVER  ||--o{ VEHICLE : "assigned to"
-    DRIVER  ||--o{ TRIP : "executes"
-    VEHICLE ||--o{ TRIP : "used in"
-    COMPANY ||--o{ INVOICE : "invoiced to"
-    INVOICE ||--|| PAYMENT : "settled via"
+```
++---------------------------------------------------------------+
+|                       DATABASE CATALOG                        |
+|                         transport_db                          |
++---------------------------------------------------------------+
+      |                        |                        |
+      v                        v                        v
++------------+           +------------+           +------------+
+|  company   |<--+   +---|   driver   |           |  vehicle   |
+| (Tenants)  |   |   |   | (Operators)|<----------|  (Fleet)   |
++------------+   |   |   +------------+           +------------+
+      |          |   |         |                        |
+      v          |   |         v                        |
++------------+   |   |   +------------+                 |
+|  invoice   |---+   +---|    trip    |<----------------+
++------------+           | (Activity) |
+      |                  +------------+
+      v
++------------+
+|  payment   |
++------------+
 ```
 
 ---
 
-## 2. Table Specifications & Column DDL
+## 2. Table Specifications
 
-### Table 1: `admin`
-Stores administrative user accounts with full privileges.
-```sql
-CREATE TABLE IF NOT EXISTS admin (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    username    VARCHAR(50) UNIQUE NOT NULL,
-    password    VARCHAR(100) NOT NULL,
-    full_name   VARCHAR(100)
-);
-```
+### 2.1 Table: `company` (Company Admin Tenants)
+Stores corporate client companies. Each company has independent administrative credentials.
 
-### Table 2: `company`
-Stores client companies transported for.
 ```sql
-CREATE TABLE IF NOT EXISTS company (
+CREATE TABLE company (
     id              INT AUTO_INCREMENT PRIMARY KEY,
-    company_name    VARCHAR(100) NOT NULL,
+    company_name    VARCHAR(100) NOT NULL UNIQUE,
+    admin_name      VARCHAR(100) NOT NULL,
+    email           VARCHAR(100) NOT NULL UNIQUE,
+    username        VARCHAR(50)  NOT NULL UNIQUE,
+    password        VARCHAR(100) NOT NULL,
+    contact_number  VARCHAR(20),
     address         VARCHAR(200),
-    contact_number  VARCHAR(15),
     gst_number      VARCHAR(20),
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-### Table 3: `driver`
-Stores driver profile, credentials, and active state.
+### 2.2 Table: `driver` (Drivers & Vehicle Owners)
+Stores independent commercial drivers who haul consignments for client companies.
+
 ```sql
-CREATE TABLE IF NOT EXISTS driver (
+CREATE TABLE driver (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     driver_name     VARCHAR(100) NOT NULL,
-    mobile_number   VARCHAR(15),
-    licence_number  VARCHAR(20),
-    username        VARCHAR(50) UNIQUE NOT NULL,
+    mobile_number   VARCHAR(20)  NOT NULL,
+    email           VARCHAR(100),
+    licence_number  VARCHAR(30)  NOT NULL,
+    username        VARCHAR(50)  NOT NULL UNIQUE,
     password        VARCHAR(100) NOT NULL,
-    is_active       TINYINT(1) DEFAULT 1,
+    is_active       TINYINT(1)   DEFAULT 1,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-### Table 4: `vehicle`
-Stores fleet vehicle registration, type, and driver assignment.
+### 2.3 Table: `vehicle` (Commercial Fleet Vehicles)
+Commercial vehicles owned or operated by drivers. Multiple vehicles can be linked to a single driver.
+
 ```sql
-CREATE TABLE IF NOT EXISTS vehicle (
+CREATE TABLE vehicle (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
     registration_number VARCHAR(20) UNIQUE NOT NULL,
-    vehicle_type        VARCHAR(50),
+    vehicle_type        VARCHAR(50) NOT NULL,
     driver_id           INT,
     status              VARCHAR(20) DEFAULT 'Active',
     FOREIGN KEY (driver_id) REFERENCES driver(id) ON DELETE SET NULL
 );
 ```
 
-### Table 5: `trip`
-The core transactional ledger storing daily operational trips.
+### 2.4 Table: `trip` (Daily Operational Trips)
+The central operational activity table. Contains both `company_id` and `driver_id` for strict tenant isolation.
+
 ```sql
-CREATE TABLE IF NOT EXISTS trip (
+CREATE TABLE trip (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
     trip_code           VARCHAR(20) UNIQUE NOT NULL,
     trip_date           DATE NOT NULL,
@@ -159,61 +92,75 @@ CREATE TABLE IF NOT EXISTS trip (
     vehicle_id          INT NOT NULL,
     source_location     VARCHAR(100) NOT NULL,
     destination         VARCHAR(100) NOT NULL,
+    goods_description   VARCHAR(200),
     amount              DECIMAL(10,2) NOT NULL,
+    trip_status         VARCHAR(20) DEFAULT 'Completed',
     remarks             VARCHAR(200),
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (company_id) REFERENCES company(id),
-    FOREIGN KEY (driver_id)  REFERENCES driver(id),
-    FOREIGN KEY (vehicle_id) REFERENCES vehicle(id)
+    FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE,
+    FOREIGN KEY (driver_id)  REFERENCES driver(id)  ON DELETE RESTRICT,
+    FOREIGN KEY (vehicle_id) REFERENCES vehicle(id) ON DELETE RESTRICT
 );
 ```
 
-### Table 6: `invoice`
-Stores monthly finalized invoices generated for clients.
+### 2.5 Table: `invoice` (Monthly Billing Statements)
+Stores both Company-wide monthly invoices (`invoice_type = 'Company'`) and Driver-wise invoices (`invoice_type = 'Driver'`).
+
 ```sql
-CREATE TABLE IF NOT EXISTS invoice (
-    id              INT AUTO_INCREMENT PRIMARY KEY,
-    invoice_number  VARCHAR(20) UNIQUE NOT NULL,
-    invoice_date    DATE NOT NULL,
-    company_id      INT NOT NULL,
-    driver_id       INT,
-    vehicle_id      INT,
-    billing_month   INT NOT NULL,
-    billing_year    INT NOT NULL,
-    total_trips     INT DEFAULT 0,
-    total_amount    DECIMAL(10,2) DEFAULT 0.00,
-    status          VARCHAR(20) DEFAULT 'Generated',
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (company_id) REFERENCES company(id)
+CREATE TABLE invoice (
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    invoice_number   VARCHAR(20) UNIQUE NOT NULL,
+    invoice_date     DATE NOT NULL,
+    company_id       INT NOT NULL,
+    driver_id        INT,
+    vehicle_id       INT,
+    billing_month    INT NOT NULL,
+    billing_year     INT NOT NULL,
+    total_trips      INT DEFAULT 0,
+    total_amount     DECIMAL(10,2) DEFAULT 0.00,
+    amount_paid      DECIMAL(10,2) DEFAULT 0.00,
+    remaining_amount DECIMAL(10,2) DEFAULT 0.00,
+    invoice_type     VARCHAR(20) DEFAULT 'Company',
+    status           VARCHAR(20) DEFAULT 'Generated',
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE,
+    FOREIGN KEY (driver_id)  REFERENCES driver(id)  ON DELETE SET NULL
 );
 ```
 
-### Table 7: `payment`
-Stores payment transaction tracking linked one-to-one to each invoice.
+### 2.6 Table: `payment` (Settlement Tracking)
+Maintains audit logs of payments, receipts, and outstanding invoice balances.
+
 ```sql
-CREATE TABLE IF NOT EXISTS payment (
+CREATE TABLE payment (
     id               INT AUTO_INCREMENT PRIMARY KEY,
     invoice_id       INT NOT NULL UNIQUE,
+    company_id       INT NOT NULL,
     total_amount     DECIMAL(10,2) NOT NULL,
     amount_received  DECIMAL(10,2) DEFAULT 0.00,
     remaining_amount DECIMAL(10,2) DEFAULT 0.00,
     payment_date     DATE,
     payment_status   VARCHAR(20) DEFAULT 'Pending',
     notes            VARCHAR(200),
-    FOREIGN KEY (invoice_id) REFERENCES invoice(id)
+    FOREIGN KEY (invoice_id) REFERENCES invoice(id) ON DELETE CASCADE,
+    FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE
 );
 ```
 
 ---
 
-## 3. Relational Constraints & Data Integrity
+## 3. Seeded Default Accounts
 
-1. **Foreign Key Integrity:**
-   - Every trip must reference a valid `company_id`, `driver_id`, and `vehicle_id`. It is impossible to log an orphaned trip.
-   - If a driver account is deleted, vehicles assigned to that driver have their `driver_id` safely set to `NULL` (`ON DELETE SET NULL`) rather than corrupting vehicle records.
-2. **Unique Constraints:**
-   - `admin.username` and `driver.username` are enforced UNIQUE to prevent identity collisions.
-   - `vehicle.registration_number` is UNIQUE to prevent registering duplicate vehicle plates.
-   - `trip.trip_code` and `invoice.invoice_number` are UNIQUE to ensure auditability.
-3. **Data Types:**
-   - Financial sums (`amount`, `total_amount`, `amount_received`, `remaining_amount`) use `DECIMAL(10, 2)` instead of floating-point `FLOAT` or `DOUBLE` in MySQL to prevent floating-point rounding errors.
+### Companies (Company Admins)
+| ID | Company Name | Admin Name | Username | Email | Password |
+|---|---|---|---|---|---|
+| 1 | Om Sai | Rajesh Patil | `omsai` | `admin@omsai.com` | `omsai123` |
+| 2 | Oracle | Sanjay Deshmukh | `oracle` | `admin@oracle.com` | `oracle123` |
+| 3 | Company XYZ | Vikrant Mehta | `xyz` | `admin@xyz.com` | `xyz123` |
+
+### Drivers / Vehicle Owners
+| ID | Driver Name | Username | Email | Password | Operating Vehicles |
+|---|---|---|---|---|---|
+| 1 | Rahul | `rahul` | `rahul@transport.com` | `rahul123` | `MH-48-AB-1234` (Tempo), `MH-02-XY-4321` (Pickup Van) |
+| 2 | Amit | `amit` | `amit@transport.com` | `amit123` | `MH-48-CD-5678` (Pickup Van) |
+| 3 | Sagar | `sagar` | `sagar@transport.com` | `sagar123` | `MH-48-EF-9012` (Heavy Truck), `MH-04-GH-7890` (Trailer) |

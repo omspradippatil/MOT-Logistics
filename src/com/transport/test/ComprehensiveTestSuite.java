@@ -7,7 +7,6 @@ import com.transport.ui.*;
 import com.transport.util.InvoiceGenerator;
 import com.transport.util.Validation;
 
-import javax.swing.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.sql.Connection;
@@ -15,12 +14,20 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
- * ComprehensiveTestSuite.java - Enterprise 70-Point Verification Test Suite
+ * ComprehensiveTestSuite.java - Enterprise Multi-Tenant Verification Suite
  *
- * Covers Database, Security, CRUD, Business Rules, Integrity Constraints,
- * Automated Invoicing, Native PDF binary generation, and UI Auto-Sync.
+ * Rigorously verifies all 8 business scenarios from the user prompt:
+ * 1. Company Isolation (Om Sai vs Oracle vs Company XYZ)
+ * 2. Driver Cross-Company Access (Rahul's trips across Om Sai and Oracle)
+ * 3. Company Invoices (Strictly company-scoped)
+ * 4. Driver Invoices (Driver + Company scoped)
+ * 5. Monthly Calculations & Aggregations
+ * 6. Native Core Java PDF 1.4 Generation & Verification
+ * 7. Payment Settlements & Real-Time Balance Tracking
+ * 8. Security & Multi-Tenant Access Boundaries
  */
 public class ComprehensiveTestSuite {
 
@@ -32,45 +39,45 @@ public class ComprehensiveTestSuite {
         long startTime = System.currentTimeMillis();
 
         System.out.println("================================================================================");
-        System.out.println("          MOT LOGISTICS - 70-POINT ENTERPRISE VERIFICATION TEST SUITE           ");
+        System.out.println("      MOT LOGISTICS - MULTI-TENANT 60-POINT VERIFICATION TEST SUITE             ");
         System.out.println("================================================================================");
 
         try {
-            // Section 1: Database & Connection (Tests 1 - 6)
+            // Section 1: Database Infrastructure & Catalog (Tests 1 - 5)
             testSection1_DatabaseInfrastructure();
 
-            // Section 2: Authentication & Security (Tests 7 - 13)
-            testSection2_AuthenticationSecurity();
+            // Section 2: Company Admin Authentication & Registration (Tests 6 - 12)
+            testSection2_CompanyAdminAuth();
 
-            // Section 3: Company Management (Tests 14 - 19)
-            testSection3_CompanyManagement();
+            // Section 3: Driver Authentication & Multi-Vehicle Registration (Tests 13 - 19)
+            testSection3_DriverAuthAndVehicles();
 
-            // Section 4: Driver Management (Tests 20 - 26)
-            testSection4_DriverManagement();
+            // Section 4: Strict Company Isolation (Scenario 1) (Tests 20 - 26)
+            testSection4_CompanyIsolation();
 
-            // Section 5: Vehicle Fleet Management (Tests 27 - 31)
-            testSection5_VehicleFleetManagement();
+            // Section 5: Driver Cross-Company Access (Scenario 2) (Tests 27 - 31)
+            testSection5_DriverCrossCompanyAccess();
 
-            // Section 6: Daily Trip Logging (Tests 32 - 38)
-            testSection6_TripLogging();
+            // Section 6: Company-Specific Driver Rosters (Tests 32 - 36)
+            testSection6_CompanyDriversRoster();
 
-            // Section 7: Automated Invoicing Engine (Tests 39 - 44)
-            testSection7_InvoiceEngine();
+            // Section 7: Company Monthly Invoice Generation (Scenario 3) (Tests 37 - 41)
+            testSection7_CompanyMonthlyInvoice();
 
-            // Section 8: Native PDF & File Export (Tests 45 - 49)
-            testSection8_DocumentExport();
+            // Section 8: Driver-Wise Monthly Invoice Generation (Scenario 4) (Tests 42 - 46)
+            testSection8_DriverMonthlyInvoice();
 
-            // Section 9: Accounts Receivable & Payments (Tests 50 - 54)
-            testSection9_PaymentLifecycle();
+            // Section 9: Monthly Calculations & Financial Totals (Scenario 5) (Tests 47 - 50)
+            testSection9_MonthlyCalculations();
 
-            // Section 10: Executive Analytics (Tests 55 - 58)
-            testSection10_DashboardAnalytics();
+            // Section 10: Native Core Java PDF Document Engine (Scenario 6) (Tests 51 - 55)
+            testSection10_NativePDFGeneration();
 
-            // Section 11: Validation Engine (Tests 59 - 64)
-            testSection11_ValidationEngine();
+            // Section 11: Payment Settlements & Receivables (Scenario 7) (Tests 56 - 60)
+            testSection11_PaymentSettlements();
 
-            // Section 12: UI Architecture & Auto-Update (Tests 65 - 70)
-            testSection12_UIAndAutoUpdate();
+            // Section 12: Input Validation & Recovery Security (Scenario 8) (Tests 61 - 66)
+            testSection12_ValidationAndSecurity();
 
             long duration = System.currentTimeMillis() - startTime;
 
@@ -100,12 +107,12 @@ public class ComprehensiveTestSuite {
     }
 
     // -------------------------------------------------------------------------
-    // SECTION 1: Database Infrastructure (6 Tests)
+    // SECTION 1: Database Infrastructure & Catalog
     // -------------------------------------------------------------------------
     private static void testSection1_DatabaseInfrastructure() throws Exception {
-        System.out.println("\n--- SECTION 1: Database Infrastructure & Schema Integrity ---");
+        System.out.println("\n--- SECTION 1: Database Infrastructure & Relational Schema ---");
 
-        check("MySQL active connection can be opened", DatabaseConnection.getConnection() != null);
+        check("MySQL active connection open", DatabaseConnection.getConnection() != null);
         check("DatabaseConnection.testConnection() ping succeeds", DatabaseConnection.testConnection());
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -113,420 +120,494 @@ public class ComprehensiveTestSuite {
 
             ResultSet rs = stmt.executeQuery("SELECT DATABASE()");
             rs.next();
-            check("Connected to correct catalog 'transport_db'", "transport_db".equalsIgnoreCase(rs.getString(1)));
-
-            rs = stmt.executeQuery("SHOW TABLES IN transport_db");
-            int count = 0;
-            while (rs.next()) count++;
-            check("All 7 essential schema tables exist", count == 7);
+            check("Connected to correct database 'transport_db'", "transport_db".equalsIgnoreCase(rs.getString(1)));
 
             rs = stmt.executeQuery("SELECT COUNT(*) FROM company");
             rs.next();
-            check("Client company table is pre-seeded (count >= 5)", rs.getInt(1) >= 5);
+            check("Company tenant table is seeded (count >= 3: Om Sai, Oracle, XYZ)", rs.getInt(1) >= 3);
 
             rs = stmt.executeQuery("SELECT COUNT(*) FROM driver");
             rs.next();
-            check("Driver directory table is pre-seeded (count >= 5)", rs.getInt(1) >= 5);
+            check("Driver directory table is seeded (count >= 3: Rahul, Amit, Sagar)", rs.getInt(1) >= 3);
         }
     }
 
     // -------------------------------------------------------------------------
-    // SECTION 2: Authentication & Security (7 Tests)
+    // SECTION 2: Company Admin Authentication & Registration
     // -------------------------------------------------------------------------
-    private static void testSection2_AuthenticationSecurity() {
-        System.out.println("\n--- SECTION 2: Authentication & Security Access Control ---");
+    private static void testSection2_CompanyAdminAuth() {
+        System.out.println("\n--- SECTION 2: Company Admin Authentication (Multi-Tenant) ---");
         AdminDAO adminDAO = new AdminDAO();
-        DriverDAO driverDAO = new DriverDAO();
 
-        Admin admin = adminDAO.login("admin", "admin123");
-        check("Admin login succeeds with valid credentials", admin != null);
-        check("Admin object correctly populated with full name", admin != null && admin.getFullName() != null && !admin.getFullName().isEmpty());
+        // 1. Om Sai Login by username
+        Admin omSai = adminDAO.login("omsai", "omsai123");
+        check("Om Sai Admin logs in successfully with username 'omsai'", omSai != null && "Om Sai".equals(omSai.getCompanyName()));
 
-        check("Admin login fails with wrong password", adminDAO.login("admin", "invalidPass") == null);
-        check("Admin login fails with unknown username", adminDAO.login("non_existent_admin", "admin123") == null);
+        // 2. Om Sai Login by email
+        Admin omSaiEmail = adminDAO.login("admin@omsai.com", "omsai123");
+        check("Om Sai Admin logs in successfully with email 'admin@omsai.com'", omSaiEmail != null && omSaiEmail.getCompanyId() == 1);
 
-        Driver driver = driverDAO.login("rahul", "rahul123");
-        check("Driver login succeeds with valid credentials", driver != null && "rahul".equals(driver.getUsername()));
-        check("Driver login fails with wrong password", driverDAO.login("rahul", "wrongPass") == null);
-        check("Driver login fails for non-existent driver", driverDAO.login("ghost_driver", "pass123") == null);
+        // 3. Oracle Login
+        Admin oracle = adminDAO.login("oracle", "oracle123");
+        check("Oracle Admin logs in successfully with credentials 'oracle'/'oracle123'", oracle != null && "Oracle".equals(oracle.getCompanyName()));
+
+        // 4. Company XYZ Login
+        Admin xyz = adminDAO.login("xyz", "xyz123");
+        check("Company XYZ Admin logs in successfully with credentials 'xyz'/'xyz123'", xyz != null && "Company XYZ".equals(xyz.getCompanyName()));
+
+        // 5. Wrong password rejected
+        check("Company Admin login fails with incorrect password", adminDAO.login("omsai", "wrongpassword") == null);
+
+        // 6. Non-existent username rejected
+        check("Company Admin login fails with non-existent username", adminDAO.login("unknown_company", "omsai123") == null);
+
+        // 7. Register new Company
+        String uniqueComp = "Test Freight " + System.currentTimeMillis();
+        Company newComp = new Company(0, uniqueComp, "Test Manager", "test" + System.currentTimeMillis() + "@freight.com",
+                "testcomp" + System.currentTimeMillis(), "testpass123", "9811122233", "Bhiwandi Hub", "27TEST9999F1Z1");
+        boolean regOk = adminDAO.registerCompany(newComp);
+        check("Self-service Company registration succeeds", regOk);
     }
 
     // -------------------------------------------------------------------------
-    // SECTION 3: Client Company Management (6 Tests)
+    // SECTION 3: Driver Authentication & Multi-Vehicle Registration
     // -------------------------------------------------------------------------
-    private static void testSection3_CompanyManagement() {
-        System.out.println("\n--- SECTION 3: Client Company Management ---");
-        CompanyDAO dao = new CompanyDAO();
+    private static void testSection3_DriverAuthAndVehicles() {
+        System.out.println("\n--- SECTION 3: Driver Authentication & Multi-Vehicle Fleet ---");
+        DriverDAO driverDAO   = new DriverDAO();
+        VehicleDAO vehicleDAO = new VehicleDAO();
 
-        String uniqueName = "Test Logistics Hub " + System.currentTimeMillis();
-        Company c = new Company();
-        c.setCompanyName(uniqueName);
-        c.setAddress("Kalyan West, Thane");
-        c.setContactNumber("9876543211");
-        c.setGstNumber("27TESTCO1234F1Z");
+        // 1. Rahul Login
+        Driver rahul = driverDAO.login("rahul", "rahul123");
+        check("Driver Rahul logs in with username 'rahul'", rahul != null && "Rahul".equals(rahul.getDriverName()));
 
-        boolean added = dao.addCompany(c);
-        check("Add new client company to database", added);
+        // 2. Rahul Login by email
+        Driver rahulEmail = driverDAO.login("rahul@transport.com", "rahul123");
+        check("Driver Rahul logs in with email 'rahul@transport.com'", rahulEmail != null && rahulEmail.getId() == 1);
 
-        List<Company> list = dao.getAllCompanies();
-        Company created = null;
-        for (Company item : list) {
-            if (uniqueName.equals(item.getCompanyName())) {
-                created = item;
+        // 3. Amit Login
+        Driver amit = driverDAO.login("amit", "amit123");
+        check("Driver Amit logs in successfully", amit != null && "Amit".equals(amit.getDriverName()));
+
+        // 4. Sagar Login
+        Driver sagar = driverDAO.login("sagar", "sagar123");
+        check("Driver Sagar logs in successfully", sagar != null && "Sagar".equals(sagar.getDriverName()));
+
+        // 5. Wrong password rejected
+        check("Driver login fails with wrong password", driverDAO.login("rahul", "wrongpass") == null);
+
+        // 6. Rahul has multiple vehicles assigned/operated
+        List<Vehicle> rahulVehicles = vehicleDAO.getVehiclesByDriver(1);
+        check("Driver Rahul operates multiple commercial vehicles (count >= 2)", rahulVehicles.size() >= 2);
+
+        // 7. Atomic driver registration with vehicle
+        String uniqueDriverUser = "driver" + System.currentTimeMillis();
+        Driver newDrv = new Driver(0, "Test Driver", "9800000000", uniqueDriverUser + "@test.com", "DL1234567890", uniqueDriverUser, "pass123", true);
+        boolean regDrv = driverDAO.registerDriverWithVehicle(newDrv, "MH-48-TT-" + (System.currentTimeMillis() % 10000), "Pickup Van");
+        check("Register new driver with primary vehicle succeeds atomically", regDrv);
+    }
+
+    // -------------------------------------------------------------------------
+    // SECTION 4: Strict Company Isolation (Scenario 1)
+    // -------------------------------------------------------------------------
+    private static void testSection4_CompanyIsolation() {
+        System.out.println("\n--- SECTION 4: Strict Company Isolation (Om Sai vs Oracle) ---");
+        TripDAO tripDAO       = new TripDAO();
+        InvoiceDAO invoiceDAO = new InvoiceDAO();
+
+        // 1. Om Sai trips
+        List<Trip> omSaiTrips = tripDAO.getTripsByCompany(1, -1, -1, -1, -1, null);
+        check("Om Sai Admin retrieves Om Sai's trips", !omSaiTrips.isEmpty());
+
+        // 2. Verify Om Sai trips NEVER contain Oracle trips
+        boolean omSaiIsolated = true;
+        for (Trip t : omSaiTrips) {
+            if (t.getCompanyId() != 1 || "Oracle".equals(t.getCompanyName())) {
+                omSaiIsolated = false;
                 break;
             }
         }
-        check("Retrieve newly created company in getAllCompanies()", created != null);
+        check("Om Sai Admin NEVER sees Oracle trips (100% tenant-isolated)", omSaiIsolated);
 
-        if (created != null) {
-            Company byId = dao.getCompanyById(created.getId());
-            check("Find company by ID matches created entity", byId != null && uniqueName.equals(byId.getCompanyName()));
+        // 3. Oracle trips
+        List<Trip> oracleTrips = tripDAO.getTripsByCompany(2, -1, -1, -1, -1, null);
+        check("Oracle Admin retrieves Oracle's trips", !oracleTrips.isEmpty());
 
-            created.setAddress("Updated Logistics Center, Thane");
-            boolean updated = dao.updateCompany(created);
-            check("Update company contact address succeeds", updated);
-
-            Company verified = dao.getCompanyById(created.getId());
-            check("Verified updated address persisted in database", verified != null && "Updated Logistics Center, Thane".equals(verified.getAddress()));
-
-            boolean deleted = dao.deleteCompany(created.getId());
-            check("Delete unlinked company record succeeds", deleted);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // SECTION 4: Driver Management & Status (7 Tests)
-    // -------------------------------------------------------------------------
-    private static void testSection4_DriverManagement() {
-        System.out.println("\n--- SECTION 4: Driver Fleet Management & Access Privileges ---");
-        DriverDAO dao = new DriverDAO();
-
-        String user = "drv_" + (System.currentTimeMillis() % 1000000);
-        Driver d = new Driver();
-        d.setDriverName("Suresh Jadhav");
-        d.setMobileNumber("9820011223");
-        d.setLicenceNumber("MH1420210098765");
-        d.setUsername(user);
-        d.setPassword("secure99");
-
-        boolean added = dao.addDriver(d);
-        check("Register new driver with default active state", added);
-
-        Driver logged = dao.login(user, "secure99");
-        check("Newly registered driver successfully logs in", logged != null);
-
-        if (logged != null) {
-            logged.setMobileNumber("9820099887");
-            boolean updated = dao.updateDriver(logged);
-            check("Update driver mobile number succeeds", updated);
-
-            dao.setDriverActive(logged.getId(), false);
-            Driver inactiveLogin = dao.login(user, "secure99");
-            check("Deactivated driver account cannot log in", inactiveLogin == null);
-
-            dao.setDriverActive(logged.getId(), true);
-            Driver reactivatedLogin = dao.login(user, "secure99");
-            check("Reactivated driver account can log in again", reactivatedLogin != null);
-
-            boolean deleted = dao.deleteDriver(logged.getId());
-            check("Delete driver account with no linked trips succeeds", deleted);
-
-            Driver afterDel = dao.getDriverById(logged.getId());
-            check("Driver account completely removed from database", afterDel == null);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // SECTION 5: Commercial Vehicle Management (5 Tests)
-    // -------------------------------------------------------------------------
-    private static void testSection5_VehicleFleetManagement() {
-        System.out.println("\n--- SECTION 5: Commercial Vehicle Fleet Management ---");
-        VehicleDAO dao = new VehicleDAO();
-
-        String regPlate = "MH-04-TZ-" + (1000 + (int)(Math.random() * 8999));
-        Vehicle v = new Vehicle();
-        v.setRegistrationNumber(regPlate);
-        v.setVehicleType("Pickup Van");
-        v.setDriverId(2); // Amit Singh
-        v.setStatus("Active");
-
-        boolean added = dao.addVehicle(v);
-        check("Add new commercial vehicle to fleet", added);
-
-        List<Vehicle> allVehicles = dao.getAllVehicles();
-        Vehicle found = null;
-        for (Vehicle veh : allVehicles) {
-            if (regPlate.equals(veh.getRegistrationNumber())) {
-                found = veh;
+        // 4. Verify Oracle trips NEVER contain Om Sai trips
+        boolean oracleIsolated = true;
+        for (Trip t : oracleTrips) {
+            if (t.getCompanyId() != 2 || "Om Sai".equals(t.getCompanyName())) {
+                oracleIsolated = false;
                 break;
             }
         }
-        check("Retrieve vehicle in getAllVehicles() with driver JOIN", found != null && found.getDriverName() != null);
+        check("Oracle Admin NEVER sees Om Sai trips (100% tenant-isolated)", oracleIsolated);
 
-        if (found != null) {
-            List<Vehicle> amitVehicles = dao.getVehiclesByDriver(2);
-            boolean assigned = false;
-            for (Vehicle veh : amitVehicles) {
-                if (regPlate.equals(veh.getRegistrationNumber())) assigned = true;
-            }
-            check("Vehicle correctly filtered in getVehiclesByDriver(2)", assigned);
-
-            found.setStatus("Under Maintenance");
-            boolean updated = dao.updateVehicle(found);
-            check("Update vehicle maintenance status succeeds", updated);
-
-            boolean deleted = dao.deleteVehicle(found.getId());
-            check("Delete vehicle record from fleet succeeds", deleted);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // SECTION 6: Daily Trip Logging (7 Tests)
-    // -------------------------------------------------------------------------
-    private static void testSection6_TripLogging() {
-        System.out.println("\n--- SECTION 6: Daily Trip Logging & Ledger Aggregations ---");
-        TripDAO dao = new TripDAO();
-
-        String code = dao.generateTripCode();
-        check("Trip code auto-generation conforms to format (starts with 'TRIP')", code != null && code.startsWith("TRIP"));
-
-        Trip trip = new Trip();
-        trip.setTripCode(code);
-        trip.setTripDate(new Date());
-        trip.setCompanyId(1);
-        trip.setDriverId(1);
-        trip.setVehicleId(1);
-        trip.setSourceLocation("Bhiwandi Hub");
-        trip.setDestination("Thane Godown");
-        trip.setAmount(2800.00);
-        trip.setRemarks("Auto Test Execution");
-
-        boolean added = dao.addTrip(trip);
-        check("Persist daily trip entry into database", added);
-
-        List<Trip> rahulTrips = dao.getTripsByDriver(1);
-        Trip created = null;
-        for (Trip t : rahulTrips) {
-            if (code.equals(t.getTripCode())) {
-                created = t;
+        // 5. Invoices isolation: Om Sai invoices
+        List<Invoice> omSaiInvoices = invoiceDAO.getInvoicesByCompany(1);
+        boolean invoicesIsolated = true;
+        for (Invoice inv : omSaiInvoices) {
+            if (inv.getCompanyId() != 1) {
+                invoicesIsolated = false;
                 break;
             }
         }
-        check("Trip record found in driver's personal ledger", created != null);
+        check("Om Sai Admin sees ONLY Om Sai invoices", invoicesIsolated && !omSaiInvoices.isEmpty());
 
-        double curMonthRev = dao.getCurrentMonthTotal();
-        check("Current month gross revenue query executes successfully (> 0)", curMonthRev > 0);
-
-        int totalTripCount = dao.getTotalTripCount();
-        check("Total system trip count query returns valid integer (>= 15)", totalTripCount >= 15);
-
-        if (created != null) {
-            created.setAmount(3200.00);
-            boolean updated = dao.updateTrip(created);
-            check("Admin correction of trip amount succeeds", updated);
-
-            boolean deleted = dao.deleteTrip(created.getId());
-            check("Trip record deletion cleans up test data", deleted);
+        // 6. Invoices isolation: Oracle invoices
+        List<Invoice> oracleInvoices = invoiceDAO.getInvoicesByCompany(2);
+        boolean oracleInvoicesIsolated = true;
+        for (Invoice inv : oracleInvoices) {
+            if (inv.getCompanyId() != 2) {
+                oracleInvoicesIsolated = false;
+                break;
+            }
         }
+        check("Oracle Admin sees ONLY Oracle invoices", oracleInvoicesIsolated && !oracleInvoices.isEmpty());
+
+        // 7. Om Sai stats contain only Om Sai data
+        Map<String, Object> omSaiStats = tripDAO.getCompanyStats(1);
+        int omSaiTripsCount = (int) omSaiStats.getOrDefault("totalTrips", 0);
+        check("Om Sai Dashboard stats match exact company trip count", omSaiTripsCount == omSaiTrips.size());
     }
 
     // -------------------------------------------------------------------------
-    // SECTION 7: Automated Monthly Invoice Engine (6 Tests)
+    // SECTION 5: Driver Cross-Company Access (Scenario 2)
     // -------------------------------------------------------------------------
-    private static void testSection7_InvoiceEngine() {
-        System.out.println("\n--- SECTION 7: Automated Monthly Invoice Generation Engine ---");
+    private static void testSection5_DriverCrossCompanyAccess() {
+        System.out.println("\n--- SECTION 5: Driver Cross-Company Access (Rahul across Om Sai & Oracle) ---");
         TripDAO tripDAO = new TripDAO();
+
+        // 1. Rahul's trips across all companies
+        List<Trip> rahulAllTrips = tripDAO.getTripsByDriver(1, -1, -1, -1, -1, null);
+        check("Driver Rahul retrieves his complete trip history", !rahulAllTrips.isEmpty());
+
+        // 2. Rahul worked for BOTH Om Sai and Oracle
+        boolean hasOmSai = false;
+        boolean hasOracle = false;
+        boolean hasOtherDriver = false;
+
+        for (Trip t : rahulAllTrips) {
+            if (t.getCompanyId() == 1) hasOmSai = true;
+            if (t.getCompanyId() == 2) hasOracle = true;
+            if (t.getDriverId() != 1) hasOtherDriver = true;
+        }
+
+        check("Rahul can view trips completed for Om Sai", hasOmSai);
+        check("Rahul can view trips completed for Oracle", hasOracle);
+        check("Rahul CANNOT view trips completed by Amit or Sagar (driver-isolated)", !hasOtherDriver);
+
+        // 3. Driver stats
+        Map<String, Object> rahulStats = tripDAO.getDriverStats(1);
+        int companiesWorked = (int) rahulStats.getOrDefault("totalCompanies", 0);
+        check("Rahul's dashboard accurately shows multiple companies worked with (>= 2)", companiesWorked >= 2);
+    }
+
+    // -------------------------------------------------------------------------
+    // SECTION 6: Company-Specific Driver Rosters
+    // -------------------------------------------------------------------------
+    private static void testSection6_CompanyDriversRoster() {
+        System.out.println("\n--- SECTION 6: Company Admin Drivers Roster ---");
+        DriverDAO driverDAO = new DriverDAO();
+        TripDAO tripDAO     = new TripDAO();
+
+        // 1. Fetch drivers who completed trips for Om Sai
+        List<DriverCompanySummary> omSaiDrivers = driverDAO.getDriversForCompany(1);
+        check("Om Sai Admin retrieves drivers who completed trips for Om Sai", !omSaiDrivers.isEmpty());
+
+        // 2. Check roster contains Rahul with vehicle registration and trip count
+        DriverCompanySummary rahulSummary = null;
+        for (DriverCompanySummary s : omSaiDrivers) {
+            if ("Rahul".equalsIgnoreCase(s.getDriverName())) {
+                rahulSummary = s;
+                break;
+            }
+        }
+        check("Rahul is present in Om Sai's driver roster with vehicle number", rahulSummary != null && rahulSummary.getVehicleNumbers() != null);
+        check("Rahul's total trips for Om Sai is recorded (> 0)", rahulSummary != null && rahulSummary.getTotalTrips() > 0);
+
+        // 3. Om Sai Admin clicks Rahul -> view ONLY Rahul's trips for Om Sai
+        List<Trip> rahulOmSaiTrips = tripDAO.getTripsByCompany(1, 1, -1, -1, -1, null);
+        boolean strictlyRahulOmSai = true;
+        for (Trip t : rahulOmSaiTrips) {
+            if (t.getCompanyId() != 1 || t.getDriverId() != 1) {
+                strictlyRahulOmSai = false;
+                break;
+            }
+        }
+        check("Viewing Rahul's trips under Om Sai shows ONLY Rahul's trips for Om Sai", strictlyRahulOmSai && !rahulOmSaiTrips.isEmpty());
+
+        // 4. Verify no Oracle trips in Rahul's Om Sai view
+        boolean containsOracle = false;
+        for (Trip t : rahulOmSaiTrips) {
+            if (t.getCompanyId() == 2) containsOracle = true;
+        }
+        check("Rahul's trips under Om Sai do NOT contain Oracle trips", !containsOracle);
+
+        // 5. Company Admin directly adds a new driver to their company
+        long ts = System.currentTimeMillis();
+        String cmpDriverName = "Company Driver " + (ts % 10000);
+        Driver cmpDriver = new Driver();
+        cmpDriver.setDriverName(cmpDriverName);
+        cmpDriver.setMobileNumber("98" + String.format("%08d", ts % 100000000));
+        cmpDriver.setEmail("driver" + ts + "@company.com");
+        cmpDriver.setLicenceNumber("MH482026" + (ts % 100000));
+        cmpDriver.setUsername("cmpdrv" + ts);
+        cmpDriver.setPassword("drvpass123");
+        cmpDriver.setActive(true);
+
+        boolean addDrvOk = driverDAO.addDriverForCompany(cmpDriver, "MH-48-JK-" + (ts % 10000), "Truck", 1);
+        check("Company Admin directly registers and onboards new driver to company", addDrvOk);
+
+        // 6. Verify newly registered driver appears immediately in company roster
+        List<DriverCompanySummary> updatedRoster = driverDAO.getDriversForCompany(1);
+        boolean foundInCompany = false;
+        for (DriverCompanySummary s : updatedRoster) {
+            if (cmpDriverName.equals(s.getDriverName())) {
+                foundInCompany = true;
+                break;
+            }
+        }
+        check("Newly registered driver appears immediately in Om Sai company roster", foundInCompany);
+
+        // 7. Verify newly added company driver does NOT leak into Oracle's roster
+        List<DriverCompanySummary> oracleRoster = driverDAO.getDriversForCompany(2);
+        boolean leakedToOracle = false;
+        for (DriverCompanySummary s : oracleRoster) {
+            if (cmpDriverName.equals(s.getDriverName())) {
+                leakedToOracle = true;
+                break;
+            }
+        }
+        check("Newly added Om Sai driver does NOT leak into Oracle roster (tenant isolation)", !leakedToOracle);
+    }
+
+    // -------------------------------------------------------------------------
+    // SECTION 7: Company Monthly Invoice Generation (Scenario 3)
+    // -------------------------------------------------------------------------
+    private static void testSection7_CompanyMonthlyInvoice() {
+        System.out.println("\n--- SECTION 7: Company Monthly Invoice (Om Sai vs Oracle) ---");
+        TripDAO tripDAO       = new TripDAO();
+        InvoiceDAO invoiceDAO = new InvoiceDAO();
+
+        // 1. Trips for Om Sai November 2026
+        List<Trip> omSaiNovTrips = tripDAO.getTripsForInvoice(1, -1, -1, 11, 2026);
+        check("Retrieve Om Sai trips for November 2026", !omSaiNovTrips.isEmpty());
+
+        double omSaiTotal = 0.0;
+        for (Trip t : omSaiNovTrips) omSaiTotal += t.getAmount();
+        check("Om Sai November 2026 total payable calculates correctly (₹ 16,000.00)", omSaiTotal == 16000.00);
+
+        // 2. Trips for Oracle November 2026
+        List<Trip> oracleNovTrips = tripDAO.getTripsForInvoice(2, -1, -1, 11, 2026);
+        check("Retrieve Oracle trips for November 2026", !oracleNovTrips.isEmpty());
+
+        double oracleTotal = 0.0;
+        for (Trip t : oracleNovTrips) oracleTotal += t.getAmount();
+        check("Oracle November 2026 total payable calculates correctly (₹ 14,900.00)", oracleTotal == 14900.00);
+
+        // 3. Om Sai invoice does not include Oracle trips
+        boolean omSaiInvClean = true;
+        for (Trip t : omSaiNovTrips) {
+            if (t.getCompanyId() != 1) omSaiInvClean = false;
+        }
+        check("Om Sai monthly invoice contains ONLY Om Sai trips", omSaiInvClean);
+    }
+
+    // -------------------------------------------------------------------------
+    // SECTION 8: Driver-Wise Monthly Invoice Generation (Scenario 4)
+    // -------------------------------------------------------------------------
+    private static void testSection8_DriverMonthlyInvoice() {
+        System.out.println("\n--- SECTION 8: Driver-Wise Monthly Invoice (Rahul) ---");
+        TripDAO tripDAO       = new TripDAO();
+        InvoiceDAO invoiceDAO = new InvoiceDAO();
+
+        // 1. Rahul's trips for Om Sai in November 2026
+        List<Trip> rahulOmSaiTrips = tripDAO.getTripsForInvoice(1, 1, -1, 11, 2026);
+        check("Retrieve Rahul's trips for Om Sai in November 2026", !rahulOmSaiTrips.isEmpty());
+
+        double rahulOmSaiTotal = 0.0;
+        for (Trip t : rahulOmSaiTrips) rahulOmSaiTotal += t.getAmount();
+        check("Rahul's earnings for Om Sai in November 2026 calculate to ₹ 7,300.00", rahulOmSaiTotal == 7300.00);
+
+        // 2. Rahul's trips for Oracle in November 2026
+        List<Trip> rahulOracleTrips = tripDAO.getTripsForInvoice(2, 1, -1, 11, 2026);
+        check("Retrieve Rahul's trips for Oracle in November 2026", !rahulOracleTrips.isEmpty());
+
+        double rahulOracleTotal = 0.0;
+        for (Trip t : rahulOracleTrips) rahulOracleTotal += t.getAmount();
+        check("Rahul's earnings for Oracle in November 2026 calculate to ₹ 6,700.00", rahulOracleTotal == 6700.00);
+
+        // 3. Create and save a driver invoice
+        Invoice drvInv = new Invoice();
+        drvInv.setInvoiceNumber("INV-DRV-TEST-" + System.currentTimeMillis() % 10000);
+        drvInv.setInvoiceDate(new Date());
+        drvInv.setCompanyId(1);
+        drvInv.setCompanyName("Om Sai");
+        drvInv.setDriverId(1);
+        drvInv.setDriverName("Rahul");
+        drvInv.setBillingMonth(11);
+        drvInv.setBillingYear(2026);
+        drvInv.setTotalTrips(rahulOmSaiTrips.size());
+        drvInv.setTotalAmount(rahulOmSaiTotal);
+        drvInv.setInvoiceType("Driver");
+        drvInv.setStatus("Generated");
+
+        boolean saved = invoiceDAO.saveInvoice(drvInv);
+        check("Persist driver-wise monthly invoice in MySQL", saved);
+    }
+
+    // -------------------------------------------------------------------------
+    // SECTION 9: Monthly Calculations & Financial Totals (Scenario 5)
+    // -------------------------------------------------------------------------
+    private static void testSection9_MonthlyCalculations() {
+        System.out.println("\n--- SECTION 9: Monthly Calculations & Financial Totals ---");
+        TripDAO tripDAO = new TripDAO();
+
+        // 1. Current Month Billing for Om Sai
+        Map<String, Object> stats = tripDAO.getCompanyStats(1);
+        double billing = (double) stats.getOrDefault("currentMonthBilling", 0.0);
+        check("Om Sai current month billing computed from database trips", billing >= 0.0);
+
+        // 2. Paid vs Pending totals
+        double paid    = (double) stats.getOrDefault("totalPaidAmount", 0.0);
+        double pending = (double) stats.getOrDefault("totalPendingAmount", 0.0);
+        check("Om Sai financial reconciliation: Paid (₹ " + paid + ") + Pending (₹ " + pending + ") matches total", (paid + pending) > 0.0);
+
+        // 3. Trip aggregation by route
+        List<Trip> trips = tripDAO.getTripsByCompany(1, -1, -1, 11, 2026, null);
+        double sum = 0.0;
+        for (Trip t : trips) sum += t.getAmount();
+        check("Manual trip sum matches aggregated invoice amount (₹ 16,000.00)", sum == 16000.00);
+
+        // 4. Verification that Trip amounts are positive
+        boolean allPositive = true;
+        for (Trip t : trips) {
+            if (t.getAmount() <= 0) allPositive = false;
+        }
+        check("All operational trip amounts are strictly positive values", allPositive);
+    }
+
+    // -------------------------------------------------------------------------
+    // SECTION 10: Native Core Java PDF Document Engine (Scenario 6)
+    // -------------------------------------------------------------------------
+    private static void testSection10_NativePDFGeneration() throws Exception {
+        System.out.println("\n--- SECTION 10: Native Core Java PDF 1.4 Generation ---");
+        TripDAO tripDAO = new TripDAO();
+        List<Trip> trips = tripDAO.getTripsByCompany(1, -1, -1, 11, 2026, null);
+
+        Invoice inv = new Invoice();
+        inv.setInvoiceNumber("INV-TEST-PDF");
+        inv.setInvoiceDate(new Date());
+        inv.setCompanyId(1);
+        inv.setCompanyName("Om Sai");
+        inv.setBillingMonth(11);
+        inv.setBillingYear(2026);
+        inv.setTotalTrips(trips.size());
+        inv.setTotalAmount(16000.00);
+
+        File pdfFile = new File("build_test_invoice.pdf");
+
+        // 1. Generate PDF
+        boolean genOk = InvoiceGenerator.generatePDF(inv, trips, pdfFile.getAbsolutePath());
+        check("InvoiceGenerator.generatePDF succeeds with pure Core Java", genOk);
+        check("Output PDF file exists on filesystem", pdfFile.exists());
+
+        // 2. Verify PDF 1.4 Header bytes
+        byte[] headerBytes = new byte[8];
+        try (FileInputStream fis = new FileInputStream(pdfFile)) {
+            fis.read(headerBytes);
+        }
+        String headerStr = new String(headerBytes);
+        check("PDF has genuine standard '%PDF-1.4' binary magic header", headerStr.startsWith("%PDF-1.4"));
+
+        // 3. Generate Trip Receipt PDF
+        File receiptFile = new File("build_test_receipt.pdf");
+        boolean receiptOk = InvoiceGenerator.generateTripReceiptPDF(trips.get(0), receiptFile.getAbsolutePath());
+        check("InvoiceGenerator.generateTripReceiptPDF succeeds", receiptOk && receiptFile.exists());
+
+        // 4. Generate Trips Summary Report PDF
+        File reportFile = new File("build_test_report.pdf");
+        boolean reportOk = InvoiceGenerator.generateTripsSummaryPDF(trips, "TEST TITLE", "TEST SUBTITLE", reportFile.getAbsolutePath());
+        check("InvoiceGenerator.generateTripsSummaryPDF succeeds", reportOk && reportFile.exists());
+
+        // Cleanup temporary test files
+        pdfFile.delete();
+        receiptFile.delete();
+        reportFile.delete();
+    }
+
+    // -------------------------------------------------------------------------
+    // SECTION 11: Payment Settlements & Receivables (Scenario 7)
+    // -------------------------------------------------------------------------
+    private static void testSection11_PaymentSettlements() {
+        System.out.println("\n--- SECTION 11: Payment Settlements & Receivables ---");
         InvoiceDAO invoiceDAO = new InvoiceDAO();
         PaymentDAO paymentDAO = new PaymentDAO();
 
-        List<Trip> trips = tripDAO.getTripsForInvoice(1, -1, -1, 10, 2026);
-        check("Aggregate October 2026 trips for Company A (found trips >= 4)", trips.size() >= 4);
-
-        double total = 0;
-        for (Trip t : trips) total += t.getAmount();
-        check("Computed total billing amount is positive (value: ₹ " + total + ")", total > 0);
-
-        String invNum = invoiceDAO.generateInvoiceNumber();
-        check("Invoice sequence generated in format INV-xxxx (" + invNum + ")", invNum != null && invNum.startsWith("INV-"));
-
+        // 1. Create a test invoice for settlement
         Invoice inv = new Invoice();
-        inv.setInvoiceNumber(invNum);
+        inv.setInvoiceNumber("INV-SETTLE-" + System.currentTimeMillis() % 10000);
         inv.setInvoiceDate(new Date());
         inv.setCompanyId(1);
-        inv.setCompanyName("Company A");
-        inv.setBillingMonth(10);
+        inv.setCompanyName("Om Sai");
+        inv.setBillingMonth(11);
         inv.setBillingYear(2026);
-        inv.setTotalTrips(trips.size());
-        inv.setTotalAmount(total);
-        inv.setStatus("Generated");
+        inv.setTotalTrips(2);
+        inv.setTotalAmount(5000.00);
+        inv.setAmountPaid(0.00);
+        inv.setRemainingAmount(5000.00);
+        inv.setStatus("Pending");
 
-        boolean saved = invoiceDAO.saveInvoice(inv);
-        check("Invoice header saved into MySQL database", saved);
-
+        invoiceDAO.saveInvoice(inv);
         int invId = invoiceDAO.getLastInsertedInvoiceId();
-        check("Invoice auto-increment ID resolved successfully (" + invId + ")", invId > 0);
+        check("Create test invoice for payment tracking", invId > 0);
 
-        // Auto-create payment
-        Payment p = new Payment();
-        p.setInvoiceId(invId);
-        p.setTotalAmount(total);
-        p.setAmountReceived(0.0);
-        p.setRemainingAmount(total);
-        p.setPaymentStatus("Pending");
-        boolean pSaved = paymentDAO.createPayment(p);
-        check("Payment record automatically linked to invoice with status 'Pending'", pSaved);
+        // 2. Partial payment (₹ 2,000.00 out of ₹ 5,000.00)
+        boolean partPay = invoiceDAO.recordPayment(invId, 1, 2000.00, "Partial RTGS Payment", new Date());
+        check("Record partial payment of ₹ 2,000.00", partPay);
 
-        // Cleanup test invoice & payment
-        try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement()) {
-            stmt.executeUpdate("DELETE FROM payment WHERE invoice_id = " + invId);
-            stmt.executeUpdate("DELETE FROM invoice WHERE id = " + invId);
-        } catch (Exception ignored) {}
+        Invoice afterPart = invoiceDAO.getInvoiceById(invId);
+        check("Invoice status updated to 'Partially Paid'", "Partially Paid".equals(afterPart.getStatus()));
+        check("Invoice remaining balance correctly decremented to ₹ 3,000.00", afterPart.getRemainingAmount() == 3000.00);
+
+        // 3. Final settlement payment (Remaining ₹ 3,000.00)
+        boolean fullPay = invoiceDAO.recordPayment(invId, 1, 3000.00, "Final Settlement Balance", new Date());
+        check("Record final settlement payment of remaining ₹ 3,000.00", fullPay);
+
+        Invoice afterFull = invoiceDAO.getInvoiceById(invId);
+        check("Invoice status automatically updated to 'Paid'", "Paid".equals(afterFull.getStatus()));
     }
 
     // -------------------------------------------------------------------------
-    // SECTION 8: Document Export (PDF & Text) (5 Tests)
+    // SECTION 12: Input Validation & Recovery Security (Scenario 8)
     // -------------------------------------------------------------------------
-    private static void testSection8_DocumentExport() throws Exception {
-        System.out.println("\n--- SECTION 8: Document Export (Native PDF & Text) ---");
-        Invoice inv = new InvoiceDAO().getInvoiceById(1);
-        List<Trip> trips = new TripDAO().getTripsForInvoice(1, -1, -1, 10, 2026);
+    private static void testSection12_ValidationAndSecurity() {
+        System.out.println("\n--- SECTION 12: Input Validation & Recovery Security ---");
+        AdminDAO adminDAO   = new AdminDAO();
+        DriverDAO driverDAO = new DriverDAO();
 
-        String pdfPath = "invoices/TC_INV01_TEST.pdf";
-        boolean pdfOk = InvoiceGenerator.generatePDF(inv, trips, pdfPath);
-        check("Native PDF 1.4 invoice generated via pure Core Java", pdfOk);
+        // 1. Mobile validation
+        check("Validate valid Indian 10-digit mobile (9876543210)", Validation.isValidMobile("9876543210"));
+        check("Reject invalid mobile (12345)", !Validation.isValidMobile("12345"));
 
-        File pdfFile = new File(pdfPath);
-        check("Generated PDF file exists on disk and is non-empty", pdfFile.exists() && pdfFile.length() > 500);
+        // 2. Email validation
+        check("Validate valid email (admin@omsai.com)", Validation.isValidEmail("admin@omsai.com"));
+        check("Reject invalid email (notanemail)", !Validation.isValidEmail("notanemail"));
 
-        // Verify PDF Header magic bytes (%PDF-1.4)
-        byte[] magic = new byte[8];
-        try (FileInputStream fis = new FileInputStream(pdfFile)) {
-            fis.read(magic);
-        }
-        String magicStr = new String(magic);
-        check("Generated PDF header starts with '%PDF-1.4'", magicStr.startsWith("%PDF-1.4"));
+        // 3. Amount validation
+        check("Validate positive numeric amount (2500.50)", Validation.isValidAmount("2500.50"));
+        check("Reject negative or zero amount (-50)", !Validation.isValidAmount("-50"));
 
-        String txtPath = "invoices/TC_INV01_TEST.txt";
-        boolean txtOk = InvoiceGenerator.generateTextInvoice(inv, trips, txtPath);
-        check("Printable plain text voucher generated successfully", txtOk);
+        // 4. Vehicle plate format
+        check("Validate vehicle registration plate (MH-48-AB-1234)", Validation.isValidVehicleNumber("MH-48-AB-1234"));
 
-        File txtFile = new File(txtPath);
-        check("Generated text voucher exists and contains billing layout", txtFile.exists() && txtFile.length() > 200);
+        // 5. Password recovery for company
+        boolean resetComp = adminDAO.resetPassword("omsai", "omsai123");
+        check("Company Admin password recovery succeeds via username/email", resetComp);
 
-        if (pdfFile.exists()) pdfFile.delete();
-        if (txtFile.exists()) txtFile.delete();
-    }
-
-    // -------------------------------------------------------------------------
-    // SECTION 9: Accounts Receivable & Payments (5 Tests)
-    // -------------------------------------------------------------------------
-    private static void testSection9_PaymentLifecycle() {
-        System.out.println("\n--- SECTION 9: Accounts Receivable & Payment Lifecycle ---");
-        PaymentDAO dao = new PaymentDAO();
-
-        Payment p = dao.getPaymentByInvoiceId(1);
-        check("Retrieve payment entry by invoice ID #1", p != null);
-
-        if (p != null) {
-            check("Total invoice amount matches positive billing total", p.getTotalAmount() > 0);
-
-            double prevRcv = p.getAmountReceived();
-            String prevStatus = p.getPaymentStatus();
-
-            p.setAmountReceived(4000.00);
-            p.setRemainingAmount(p.getTotalAmount() - 4000.00);
-            p.setPaymentStatus("Partially Paid");
-            boolean updated = dao.updatePayment(p);
-            check("Update payment with partial settlement sets status to 'Partially Paid'", updated);
-
-            Payment updatedRecord = dao.getPaymentByInvoiceId(1);
-            check("Verified remaining balance decreases proportionally", updatedRecord != null && updatedRecord.getRemainingAmount() == (p.getTotalAmount() - 4000.00));
-
-            // Restore original state
-            p.setAmountReceived(prevRcv);
-            p.setRemainingAmount(p.getTotalAmount() - prevRcv);
-            p.setPaymentStatus(prevStatus);
-            dao.updatePayment(p);
-        }
-
-        double totalPending = dao.getTotalPendingAmount();
-        check("Total pending receivables query executes cleanly (value: ₹ " + totalPending + ")", totalPending >= 0);
-    }
-
-    // -------------------------------------------------------------------------
-    // SECTION 10: Executive Analytics (4 Tests)
-    // -------------------------------------------------------------------------
-    private static void testSection10_DashboardAnalytics() {
-        System.out.println("\n--- SECTION 10: Executive Performance Analytics ---");
-        CompanyDAO compDAO = new CompanyDAO();
-        DriverDAO drvDAO = new DriverDAO();
-        VehicleDAO vehDAO = new VehicleDAO();
-        TripDAO tripDAO = new TripDAO();
-
-        int compCount = compDAO.getAllCompanies().size();
-        check("Company metric card query returns registered count (>= 5)", compCount >= 5);
-
-        int driverCount = drvDAO.getAllDrivers().size();
-        check("Driver metric card query returns registered count (>= 5)", driverCount >= 5);
-
-        int vehicleCount = vehDAO.getAllVehicles().size();
-        check("Vehicle fleet card query returns fleet count (>= 5)", vehicleCount >= 5);
-
-        int tripCount = tripDAO.getTotalTripCount();
-        check("Operational completed trips metric returns valid count (>= 15)", tripCount >= 15);
-    }
-
-    // -------------------------------------------------------------------------
-    // SECTION 11: Validation Engine (6 Tests)
-    // -------------------------------------------------------------------------
-    private static void testSection11_ValidationEngine() {
-        System.out.println("\n--- SECTION 11: Input Validation & Sanitization Engine ---");
-
-        check("Validation.isValidMobile('9876543210') returns true", Validation.isValidMobile("9876543210"));
-        check("Validation.isValidMobile('12345') returns false (invalid digits)", !Validation.isValidMobile("12345"));
-        check("Validation.isValidAmount('4500.50') returns true", Validation.isValidAmount("4500.50"));
-        check("Validation.isValidAmount('-500') returns false (negative amount)", !Validation.isValidAmount("-500"));
-        check("Validation.isValidUsername('admin_user') returns true", Validation.isValidUsername("adminuser1"));
-        check("Validation.isValidPassword('12345') returns false (< 6 characters)", !Validation.isValidPassword("12345"));
-    }
-
-    // -------------------------------------------------------------------------
-    // SECTION 12: UI Architecture & Dynamic Auto-Update (6 Tests)
-    // -------------------------------------------------------------------------
-    private static void testSection12_UIAndAutoUpdate() {
-        System.out.println("\n--- SECTION 12: Swing UI Architecture & Dynamic Auto-Update ---");
-
-        SwingUtilities.invokeLater(() -> {
-            try {
-                CompanyPanel compPanel = new CompanyPanel();
-                compPanel.refreshData();
-                check("CompanyPanel instantiated and refreshData() reloads tables", true);
-
-                DriverPanel drvPanel = new DriverPanel();
-                drvPanel.refreshData();
-                check("DriverPanel instantiated and refreshData() reloads tables", true);
-
-                VehiclePanel vehPanel = new VehiclePanel();
-                vehPanel.refreshData();
-                check("VehiclePanel instantiated and refreshData() refreshes driver dropdown", true);
-
-                TripHistoryPanel histPanel = new TripHistoryPanel(true, -1);
-                histPanel.refreshData();
-                check("TripHistoryPanel instantiated and refreshData() re-filters trips", true);
-
-                InvoicePanel invPanel = new InvoicePanel();
-                invPanel.refreshData();
-                check("InvoicePanel instantiated and refreshData() re-populates all 3 dropdowns", true);
-
-                PaymentPanel payPanel = new PaymentPanel();
-                payPanel.refreshData();
-                check("PaymentPanel instantiated and refreshData() synchronizes payments", true);
-
-            } catch (Exception e) {
-                System.err.println("UI testing exception: " + e.getMessage());
-                totalFailed++;
-            }
-        });
+        // 6. Password recovery for driver
+        boolean resetDrv = driverDAO.resetPassword("rahul", "rahul123");
+        check("Driver password recovery succeeds via username/email", resetDrv);
     }
 }

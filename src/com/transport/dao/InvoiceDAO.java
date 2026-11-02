@@ -7,13 +7,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * InvoiceDAO.java - Data Access Object for Invoice
+ * InvoiceDAO.java - Data Access Object for Invoice Operations
  *
- * Handles invoice generation records, numbering, and lookup in MySQL.
+ * Supports both Company-wide monthly invoices and Driver-wise monthly invoices.
+ * Enforces company-level and driver-level data scoping.
  */
 public class InvoiceDAO {
 
-    /** Generate next invoice number like INV-0001 */
+    /** Generate next invoice number like INV-2026-001 */
     public String generateInvoiceNumber() {
         String sql = "SELECT COUNT(*) FROM invoice";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -22,18 +23,19 @@ public class InvoiceDAO {
 
             if (rs.next()) {
                 int count = rs.getInt(1) + 1;
-                return String.format("INV-%04d", count);
+                return String.format("INV-2026-%03d", count);
             }
 
         } catch (SQLException e) {
             System.out.println("InvoiceDAO.generateInvoiceNumber error: " + e.getMessage());
         }
-        return "INV-0001";
+        return "INV-2026-001";
     }
 
     /** Save a new invoice record to database */
     public boolean saveInvoice(Invoice invoice) {
-        String sql = "INSERT INTO invoice (invoice_number, invoice_date, company_id, driver_id, vehicle_id, billing_month, billing_year, total_trips, total_amount, status) VALUES (?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO invoice (invoice_number, invoice_date, company_id, driver_id, vehicle_id, billing_month, billing_year, total_trips, total_amount, amount_paid, remaining_amount, invoice_type, status) " +
+                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -41,21 +43,27 @@ public class InvoiceDAO {
             stmt.setString(1, invoice.getInvoiceNumber());
             stmt.setDate(2, new java.sql.Date(invoice.getInvoiceDate().getTime()));
             stmt.setInt(3, invoice.getCompanyId());
+
             if (invoice.getDriverId() > 0) {
                 stmt.setInt(4, invoice.getDriverId());
             } else {
                 stmt.setNull(4, Types.INTEGER);
             }
+
             if (invoice.getVehicleId() > 0) {
                 stmt.setInt(5, invoice.getVehicleId());
             } else {
                 stmt.setNull(5, Types.INTEGER);
             }
+
             stmt.setInt(6, invoice.getBillingMonth());
             stmt.setInt(7, invoice.getBillingYear());
             stmt.setInt(8, invoice.getTotalTrips());
             stmt.setDouble(9, invoice.getTotalAmount());
-            stmt.setString(10, invoice.getStatus());
+            stmt.setDouble(10, invoice.getAmountPaid());
+            stmt.setDouble(11, invoice.getRemainingAmount());
+            stmt.setString(12, invoice.getInvoiceType() != null ? invoice.getInvoiceType() : "Company");
+            stmt.setString(13, invoice.getStatus() != null ? invoice.getStatus() : "Generated");
 
             return stmt.executeUpdate() > 0;
 
@@ -65,22 +73,80 @@ public class InvoiceDAO {
         }
     }
 
-    /** Retrieve ID of the most recently inserted invoice */
-    public int getLastInsertedInvoiceId() {
-        String sql = "SELECT MAX(id) FROM invoice";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+    /** Record payment towards an invoice */
+    public boolean recordPayment(int invoiceId, int companyId, double paymentAmount, String notes, java.util.Date paymentDate) {
+        Invoice invoice = getInvoiceById(invoiceId);
+        if (invoice == null) return false;
 
-            if (rs.next()) return rs.getInt(1);
+        double currentPaid = invoice.getAmountPaid();
+        double newPaid     = currentPaid + paymentAmount;
+        double total       = invoice.getTotalAmount();
+        double remaining   = Math.max(0.0, total - newPaid);
 
-        } catch (SQLException e) {
-            System.out.println("InvoiceDAO.getLastInsertedInvoiceId error: " + e.getMessage());
+        String newStatus;
+        if (remaining <= 0) {
+            newStatus = "Paid";
+        } else if (newPaid > 0) {
+            newStatus = "Partially Paid";
+        } else {
+            newStatus = "Pending";
         }
-        return -1;
+
+        String updateInvoiceSql = "UPDATE invoice SET amount_paid=?, remaining_amount=?, status=? WHERE id=?";
+        String upsertPaymentSql = "INSERT INTO payment (invoice_id, company_id, total_amount, amount_received, remaining_amount, payment_date, payment_status, notes) " +
+                                  "VALUES (?,?,?,?,?,?,?,?) " +
+                                  "ON DUPLICATE KEY UPDATE amount_received=?, remaining_amount=?, payment_date=?, payment_status=?, notes=?";
+
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement invStmt = conn.prepareStatement(updateInvoiceSql);
+                 PreparedStatement payStmt = conn.prepareStatement(upsertPaymentSql)) {
+
+                invStmt.setDouble(1, newPaid);
+                invStmt.setDouble(2, remaining);
+                invStmt.setString(3, newStatus);
+                invStmt.setInt(4, invoiceId);
+                invStmt.executeUpdate();
+
+                java.sql.Date pDate = paymentDate != null ? new java.sql.Date(paymentDate.getTime()) : new java.sql.Date(System.currentTimeMillis());
+
+                payStmt.setInt(1, invoiceId);
+                payStmt.setInt(2, companyId);
+                payStmt.setDouble(3, total);
+                payStmt.setDouble(4, newPaid);
+                payStmt.setDouble(5, remaining);
+                payStmt.setDate(6, pDate);
+                payStmt.setString(7, newStatus);
+                payStmt.setString(8, notes);
+
+                payStmt.setDouble(9, newPaid);
+                payStmt.setDouble(10, remaining);
+                payStmt.setDate(11, pDate);
+                payStmt.setString(12, newStatus);
+                payStmt.setString(13, notes);
+
+                payStmt.executeUpdate();
+
+                conn.commit();
+                return true;
+            } catch (SQLException ex) {
+                conn.rollback();
+                throw ex;
+            }
+        } catch (SQLException e) {
+            System.out.println("InvoiceDAO.recordPayment error: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {}
+            }
+        }
     }
 
-    /** Retrieve all invoices ordered from newest to oldest */
+    /** Retrieve all invoices across companies (general fallback) */
     public List<Invoice> getAllInvoices() {
         List<Invoice> invoices = new ArrayList<>();
         String sql = "SELECT i.*, c.company_name, d.driver_name, v.registration_number " +
@@ -88,7 +154,7 @@ public class InvoiceDAO {
                      "JOIN company c ON i.company_id = c.id " +
                      "LEFT JOIN driver d ON i.driver_id = d.id " +
                      "LEFT JOIN vehicle v ON i.vehicle_id = v.id " +
-                     "ORDER BY i.created_at DESC";
+                     "ORDER BY i.created_at DESC, i.id DESC";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
@@ -104,33 +170,37 @@ public class InvoiceDAO {
         return invoices;
     }
 
-    /** Retrieve invoices associated with a specific driver */
-    public List<Invoice> getInvoicesByDriver(int driverId) {
-        List<Invoice> invoices = new ArrayList<>();
-        String sql = "SELECT i.*, c.company_name, d.driver_name, v.registration_number " +
-                     "FROM invoice i " +
-                     "JOIN company c ON i.company_id = c.id " +
-                     "LEFT JOIN driver d ON i.driver_id = d.id " +
-                     "LEFT JOIN vehicle v ON i.vehicle_id = v.id " +
-                     "WHERE i.driver_id=? " +
-                     "ORDER BY i.created_at DESC";
-
+    /** Retrieve ID of last inserted invoice */
+    public int getLastInsertedInvoiceId() {
+        String sql = "SELECT MAX(id) FROM invoice";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
 
-            stmt.setInt(1, driverId);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                invoices.add(mapRow(rs));
-            }
+            if (rs.next()) return rs.getInt(1);
 
         } catch (SQLException e) {
-            System.out.println("InvoiceDAO.getInvoicesByDriver error: " + e.getMessage());
+            System.out.println("InvoiceDAO.getLastInsertedInvoiceId error: " + e.getMessage());
         }
-        return invoices;
+        return -1;
     }
 
-    /** Retrieve invoices associated with a specific company */
+    /** Total count of generated invoices */
+    public int getTotalInvoiceCount() {
+        String sql = "SELECT COUNT(*) FROM invoice";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            if (rs.next()) return rs.getInt(1);
+
+        } catch (SQLException e) {
+            System.out.println("InvoiceDAO.getTotalInvoiceCount error: " + e.getMessage());
+        }
+        return 0;
+    }
+
+    /** Retrieve invoices associated with a specific company (Company Admin) */
     public List<Invoice> getInvoicesByCompany(int companyId) {
         List<Invoice> invoices = new ArrayList<>();
         String sql = "SELECT i.*, c.company_name, d.driver_name, v.registration_number " +
@@ -138,8 +208,8 @@ public class InvoiceDAO {
                      "JOIN company c ON i.company_id = c.id " +
                      "LEFT JOIN driver d ON i.driver_id = d.id " +
                      "LEFT JOIN vehicle v ON i.vehicle_id = v.id " +
-                     "WHERE i.company_id=? " +
-                     "ORDER BY i.created_at DESC";
+                     "WHERE i.company_id = ? " +
+                     "ORDER BY i.created_at DESC, i.id DESC";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -152,6 +222,32 @@ public class InvoiceDAO {
 
         } catch (SQLException e) {
             System.out.println("InvoiceDAO.getInvoicesByCompany error: " + e.getMessage());
+        }
+        return invoices;
+    }
+
+    /** Retrieve invoices associated with a specific driver (Driver Portal) */
+    public List<Invoice> getInvoicesByDriver(int driverId) {
+        List<Invoice> invoices = new ArrayList<>();
+        String sql = "SELECT i.*, c.company_name, d.driver_name, v.registration_number " +
+                     "FROM invoice i " +
+                     "JOIN company c ON i.company_id = c.id " +
+                     "LEFT JOIN driver d ON i.driver_id = d.id " +
+                     "LEFT JOIN vehicle v ON i.vehicle_id = v.id " +
+                     "WHERE i.driver_id = ? " +
+                     "ORDER BY i.created_at DESC, i.id DESC";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, driverId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                invoices.add(mapRow(rs));
+            }
+
+        } catch (SQLException e) {
+            System.out.println("InvoiceDAO.getInvoicesByDriver error: " + e.getMessage());
         }
         return invoices;
     }
@@ -178,21 +274,6 @@ public class InvoiceDAO {
         return null;
     }
 
-    /** Total count of generated invoices */
-    public int getTotalInvoiceCount() {
-        String sql = "SELECT COUNT(*) FROM invoice";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-
-            if (rs.next()) return rs.getInt(1);
-
-        } catch (SQLException e) {
-            System.out.println("InvoiceDAO.getTotalInvoiceCount error: " + e.getMessage());
-        }
-        return 0;
-    }
-
     /** Helper: convert ResultSet row into an Invoice object */
     private Invoice mapRow(ResultSet rs) throws SQLException {
         Invoice inv = new Invoice();
@@ -209,6 +290,9 @@ public class InvoiceDAO {
         inv.setBillingYear(rs.getInt("billing_year"));
         inv.setTotalTrips(rs.getInt("total_trips"));
         inv.setTotalAmount(rs.getDouble("total_amount"));
+        inv.setAmountPaid(rs.getDouble("amount_paid"));
+        inv.setRemainingAmount(rs.getDouble("remaining_amount"));
+        inv.setInvoiceType(rs.getString("invoice_type"));
         inv.setStatus(rs.getString("status"));
         return inv;
     }

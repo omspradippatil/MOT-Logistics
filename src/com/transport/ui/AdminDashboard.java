@@ -1,29 +1,32 @@
 package com.transport.ui;
 
-import com.transport.dao.*;
+import com.transport.dao.TripDAO;
 import com.transport.model.Admin;
+import com.transport.model.Trip;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.text.SimpleDateFormat;
+import java.util.List;
+import java.util.Map;
 
 /**
- * AdminDashboard.java - Executive Command Center for MOT Logistics
+ * AdminDashboard.java - Company Administrator Command Center
+ *
+ * Implements strict multi-tenant isolation:
+ * Company Admin sees ONLY operational and billing data for their own company.
  */
 public class AdminDashboard extends JFrame {
 
     private Admin admin;
-
-    private TripDAO    tripDAO    = new TripDAO();
-    private InvoiceDAO invoiceDAO = new InvoiceDAO();
-    private PaymentDAO paymentDAO = new PaymentDAO();
-    private CompanyDAO companyDAO = new CompanyDAO();
-    private DriverDAO  driverDAO  = new DriverDAO();
-    private VehicleDAO vehicleDAO = new VehicleDAO();
+    private TripDAO tripDAO = new TripDAO();
 
     public AdminDashboard(Admin admin) {
         this.admin = admin;
-        setTitle("MOT Logistics - Admin Command Center (" + admin.getFullName() + ")");
-        setSize(1080, 700);
+        setTitle("MOT Logistics - " + admin.getCompanyName() + " Admin Command Center");
+        setSize(1160, 740);
+        setMinimumSize(new Dimension(1040, 680));
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -31,7 +34,7 @@ public class AdminDashboard extends JFrame {
     }
 
     private void initUI() {
-        // Top Brand Header Bar
+        // Top Header
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(UITheme.BRAND_NAVY);
         headerPanel.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
@@ -39,13 +42,13 @@ public class AdminDashboard extends JFrame {
         JPanel titleBlock = new JPanel(new GridLayout(2, 1));
         titleBlock.setOpaque(false);
 
-        JLabel brandLabel = new JLabel("MOT LOGISTICS");
+        JLabel brandLabel = new JLabel("MOT LOGISTICS  |  " + admin.getCompanyName().toUpperCase());
         brandLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         brandLabel.setForeground(Color.WHITE);
 
-        JLabel userLabel = new JLabel("Logged in as Admin: " + admin.getFullName());
+        JLabel userLabel = new JLabel("Company Admin: " + admin.getAdminName() + "  |  Email: " + admin.getEmail());
         userLabel.setFont(UITheme.FONT_SMALL);
-        userLabel.setForeground(new Color(148, 163, 184)); // Cool slate
+        userLabel.setForeground(new Color(148, 163, 184));
 
         titleBlock.add(brandLabel);
         titleBlock.add(userLabel);
@@ -65,18 +68,17 @@ public class AdminDashboard extends JFrame {
         tabs.setFont(UITheme.FONT_BODY_BOLD);
         tabs.setBackground(Color.WHITE);
 
-        tabs.addTab("  📊 Dashboard  ",   createDashboardPanel());
-        tabs.addTab("  🏢 Companies  ",   new CompanyPanel());
-        tabs.addTab("  👨 Drivers  ",     new DriverPanel());
-        tabs.addTab("  🚛 Vehicles  ",    new VehiclePanel());
-        tabs.addTab("  📋 Trip History  ",new TripHistoryPanel(true, -1));
-        tabs.addTab("  📄 Invoices  ",    new InvoicePanel());
-        tabs.addTab("  💰 Payments  ",    new PaymentPanel());
+        tabs.addTab("  📊 Dashboard  ",          createCompanyDashboardPanel());
+        tabs.addTab("  👨 Drivers  ",            new CompanyDriversPanel(admin));
+        tabs.addTab("  📋 Trip Management  ",    new CompanyTripManagementPanel(admin));
+        tabs.addTab("  📄 Monthly Invoice  ",    new CompanyMonthlyInvoicePanel(admin));
+        tabs.addTab("  💰 Payment Management  ", new CompanyPaymentManagementPanel(admin));
+        tabs.addTab("  ⚙️ Company Profile  ",    new CompanyProfilePanel(admin));
 
         tabs.addChangeListener(e -> {
             int selectedIndex = tabs.getSelectedIndex();
             if (selectedIndex == 0) {
-                tabs.setComponentAt(0, createDashboardPanel());
+                tabs.setComponentAt(0, createCompanyDashboardPanel());
             } else {
                 Component comp = tabs.getComponentAt(selectedIndex);
                 if (comp instanceof Refreshable) {
@@ -89,77 +91,95 @@ public class AdminDashboard extends JFrame {
         add(tabs, BorderLayout.CENTER);
     }
 
-    private JPanel createDashboardPanel() {
+    private JPanel createCompanyDashboardPanel() {
         JPanel panel = new JPanel(new BorderLayout(15, 15));
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
+        panel.setBorder(BorderFactory.createEmptyBorder(18, 22, 18, 22));
         panel.setBackground(UITheme.BG_LIGHT);
 
-        JLabel welcomeLabel = new JLabel("Fleet & Operational Performance Overview", SwingConstants.LEFT);
-        welcomeLabel.setFont(UITheme.FONT_HEADER);
-        welcomeLabel.setForeground(UITheme.BRAND_BLUE);
+        // Stats Map for strictly this company
+        Map<String, Object> stats = tripDAO.getCompanyStats(admin.getCompanyId());
+        int totalTrips       = (int) stats.getOrDefault("totalTrips", 0);
+        int totalDrivers     = (int) stats.getOrDefault("totalDrivers", 0);
+        int totalVehicles    = (int) stats.getOrDefault("totalVehicles", 0);
+        double monthBilling  = (double) stats.getOrDefault("currentMonthBilling", 0.0);
+        double paidAmount    = (double) stats.getOrDefault("totalPaidAmount", 0.0);
+        double pendingAmount = (double) stats.getOrDefault("totalPendingAmount", 0.0);
 
-        // 2x3 Stat Card Grid
-        JPanel statsPanel = new JPanel(new GridLayout(2, 3, 16, 16));
+        // 2x3 Stat Cards Grid
+        JPanel statsPanel = new JPanel(new GridLayout(2, 3, 14, 14));
         statsPanel.setOpaque(false);
 
-        int totalCompanies  = companyDAO.getAllCompanies().size();
-        int totalDrivers    = driverDAO.getAllDrivers().size();
-        int totalVehicles   = vehicleDAO.getAllVehicles().size();
-        int totalTrips      = tripDAO.getTotalTripCount();
-        double monthEarning = tripDAO.getCurrentMonthTotal();
-        double pendingAmt   = paymentDAO.getTotalPendingAmount();
-        int totalInvoices   = invoiceDAO.getTotalInvoiceCount();
+        statsPanel.add(createModernCard("Total Trips Completed", String.valueOf(totalTrips), "Completed shipments for " + admin.getCompanyName(), UITheme.BRAND_BLUE));
+        statsPanel.add(createModernCard("Total Drivers Engaged", String.valueOf(totalDrivers), "Commercial fleet operators", UITheme.SUCCESS_GREEN));
+        statsPanel.add(createModernCard("Vehicles Employed", String.valueOf(totalVehicles), "Tempos, pickup vans & trucks", UITheme.UPDATE_BLUE));
+        statsPanel.add(createModernCard("Current Month Billing", "₹ " + String.format("%,.0f", monthBilling), "Gross monthly transport billing", new Color(124, 58, 237)));
+        statsPanel.add(createModernCard("Total Paid Invoices", "₹ " + String.format("%,.0f", paidAmount), "Settled invoice amounts", new Color(13, 148, 136)));
+        statsPanel.add(createModernCard("Total Pending Invoices", "₹ " + String.format("%,.0f", pendingAmount), "Outstanding unpaid invoice balance", UITheme.DANGER_RED));
 
-        statsPanel.add(createModernCard("Registered Companies", String.valueOf(totalCompanies), "Active corporate clients", UITheme.BRAND_BLUE));
-        statsPanel.add(createModernCard("Commercial Drivers",   String.valueOf(totalDrivers),   "Licensed fleet operators",  UITheme.SUCCESS_GREEN));
-        statsPanel.add(createModernCard("Fleet Vehicles",       String.valueOf(totalVehicles),  "Tempos, trucks & vans",     UITheme.UPDATE_BLUE));
-        statsPanel.add(createModernCard("Completed Trips",      String.valueOf(totalTrips),     "Total trips logged to date",new Color(124, 58, 237))); // Violet
-        statsPanel.add(createModernCard("This Month's Revenue", "₹ " + String.format("%,.0f", monthEarning), "Current month gross billing", new Color(13, 148, 136))); // Teal
-        statsPanel.add(createModernCard("Pending Receivables",  "₹ " + String.format("%,.0f", pendingAmt),   "Outstanding unpaid balances", UITheme.DANGER_RED));
+        // Recent Trips Section
+        JPanel recentPanel = new JPanel(new BorderLayout(8, 8));
+        recentPanel.setBackground(UITheme.CARD_BG);
+        recentPanel.setBorder(UITheme.createCardBorder("Recent Operational Trips for " + admin.getCompanyName()));
 
-        JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        bottomBar.setOpaque(false);
-        JLabel invSummary = new JLabel("Total Invoices Generated: " + totalInvoices + " | System Status: Active & Operational");
-        invSummary.setFont(UITheme.FONT_BODY_BOLD);
-        invSummary.setForeground(UITheme.TEXT_MUTED);
-        bottomBar.add(invSummary);
+        String[] cols = {"Trip ID", "Date", "Driver", "Vehicle No", "From (Source)", "To (Destination)", "Cargo / Goods", "Amount (₹)", "Status"};
+        DefaultTableModel model = new DefaultTableModel(cols, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        };
+        JTable table = new JTable(model);
+        UITheme.styleTable(table);
 
-        panel.add(welcomeLabel, BorderLayout.NORTH);
-        panel.add(statsPanel,   BorderLayout.CENTER);
-        panel.add(bottomBar,    BorderLayout.SOUTH);
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+        List<Trip> recentTrips = tripDAO.getTripsByCompany(admin.getCompanyId(), -1, -1, -1, -1, null);
+        int limit = Math.min(8, recentTrips.size());
+        for (int i = 0; i < limit; i++) {
+            Trip t = recentTrips.get(i);
+            model.addRow(new Object[]{
+                t.getTripCode(),
+                sdf.format(t.getTripDate()),
+                t.getDriverName(),
+                t.getVehicleNumber(),
+                t.getSourceLocation(),
+                t.getDestination(),
+                t.getGoodsDescription() != null ? t.getGoodsDescription() : "-",
+                String.format("₹ %,.2f", t.getAmount()),
+                t.getTripStatus()
+            });
+        }
 
+        JScrollPane scrollPane = new JScrollPane(table);
+        recentPanel.add(scrollPane, BorderLayout.CENTER);
+
+        panel.add(statsPanel, BorderLayout.NORTH);
+        panel.add(recentPanel, BorderLayout.CENTER);
         return panel;
     }
 
     private JPanel createModernCard(String title, String value, String subtitle, Color accentColor) {
-        JPanel card = new JPanel(new BorderLayout(8, 8));
+        JPanel card = new JPanel(new BorderLayout(4, 4));
         card.setBackground(UITheme.CARD_BG);
         card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(UITheme.BORDER_COLOR, 1, true),
-                BorderFactory.createEmptyBorder(16, 18, 16, 18)
+            BorderFactory.createMatteBorder(0, 5, 0, 0, accentColor),
+            BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(226, 232, 240), 1),
+                BorderFactory.createEmptyBorder(12, 16, 12, 16)
+            )
         ));
 
-        // Top accent stripe / title
-        JPanel topRow = new JPanel(new BorderLayout());
-        topRow.setOpaque(false);
+        JLabel titleLabel = new JLabel(title.toUpperCase());
+        titleLabel.setFont(UITheme.FONT_SMALL);
+        titleLabel.setForeground(UITheme.TEXT_MUTED);
 
-        JLabel titleLbl = new JLabel(title.toUpperCase());
-        titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        titleLbl.setForeground(accentColor);
-        topRow.add(titleLbl, BorderLayout.WEST);
+        JLabel valueLabel = new JLabel(value);
+        valueLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        valueLabel.setForeground(UITheme.TEXT_DARK);
 
-        JLabel valLbl = new JLabel(value);
-        valLbl.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        valLbl.setForeground(UITheme.TEXT_DARK);
+        JLabel subLabel = new JLabel(subtitle);
+        subLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        subLabel.setForeground(new Color(148, 163, 184));
 
-        JLabel subLbl = new JLabel(subtitle);
-        subLbl.setFont(UITheme.FONT_SMALL);
-        subLbl.setForeground(UITheme.TEXT_MUTED);
-
-        card.add(topRow, BorderLayout.NORTH);
-        card.add(valLbl, BorderLayout.CENTER);
-        card.add(subLbl, BorderLayout.SOUTH);
-
+        card.add(titleLabel, BorderLayout.NORTH);
+        card.add(valueLabel, BorderLayout.CENTER);
+        card.add(subLabel, BorderLayout.SOUTH);
         return card;
     }
 }

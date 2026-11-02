@@ -9,8 +9,10 @@ import java.util.List;
 /**
  * VehicleDAO.java - Data Access Object for Vehicle
  *
- * Handles database operations for the Vehicle table.
- * Uses SQL JOINs with the driver table to include the driver's name.
+ * Handles vehicle operations including:
+ * - Driver fleet management (vehicles owned/operated by a driver)
+ * - Company-specific fleet visibility (vehicles engaged by a company)
+ * - Vehicle registrations and assignments
  */
 public class VehicleDAO {
 
@@ -28,7 +30,7 @@ public class VehicleDAO {
             } else {
                 stmt.setNull(3, Types.INTEGER);
             }
-            stmt.setString(4, vehicle.getStatus());
+            stmt.setString(4, vehicle.getStatus() != null ? vehicle.getStatus() : "Active");
 
             return stmt.executeUpdate() > 0;
 
@@ -63,7 +65,23 @@ public class VehicleDAO {
         }
     }
 
-    /** Retrieve all vehicles with assigned driver name (using LEFT JOIN) */
+    /** Delete a vehicle by ID */
+    public boolean deleteVehicle(int id) {
+        String sql = "DELETE FROM vehicle WHERE id=?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, id);
+            return stmt.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.out.println("VehicleDAO.deleteVehicle error: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Retrieve all vehicles */
     public List<Vehicle> getAllVehicles() {
         List<Vehicle> vehicles = new ArrayList<>();
         String sql = "SELECT v.*, d.driver_name FROM vehicle v LEFT JOIN driver d ON v.driver_id = d.id ORDER BY v.registration_number";
@@ -78,6 +96,53 @@ public class VehicleDAO {
 
         } catch (SQLException e) {
             System.out.println("VehicleDAO.getAllVehicles error: " + e.getMessage());
+        }
+        return vehicles;
+    }
+
+    /** Retrieve vehicles owned or operated by a specific driver */
+    public List<Vehicle> getVehiclesByDriver(int driverId) {
+        List<Vehicle> vehicles = new ArrayList<>();
+        String sql = "SELECT v.*, d.driver_name FROM vehicle v " +
+                     "LEFT JOIN driver d ON v.driver_id = d.id " +
+                     "WHERE v.driver_id = ? " +
+                     "ORDER BY v.registration_number";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, driverId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                vehicles.add(mapRow(rs));
+            }
+
+        } catch (SQLException e) {
+            System.out.println("VehicleDAO.getVehiclesByDriver error: " + e.getMessage());
+        }
+        return vehicles;
+    }
+
+    /** Retrieve vehicles used in trips for a specific company */
+    public List<Vehicle> getVehiclesByCompany(int companyId) {
+        List<Vehicle> vehicles = new ArrayList<>();
+        String sql = "SELECT DISTINCT v.*, d.driver_name FROM trip t " +
+                     "JOIN vehicle v ON t.vehicle_id = v.id " +
+                     "LEFT JOIN driver d ON v.driver_id = d.id " +
+                     "WHERE t.company_id = ? " +
+                     "ORDER BY v.registration_number";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, companyId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                vehicles.add(mapRow(rs));
+            }
+
+        } catch (SQLException e) {
+            System.out.println("VehicleDAO.getVehiclesByCompany error: " + e.getMessage());
         }
         return vehicles;
     }
@@ -99,50 +164,31 @@ public class VehicleDAO {
         return null;
     }
 
-    /** Retrieve vehicles assigned to a specific driver */
-    public List<Vehicle> getVehiclesByDriver(int driverId) {
-        List<Vehicle> vehicles = new ArrayList<>();
-        String sql = "SELECT v.*, d.driver_name FROM vehicle v LEFT JOIN driver d ON v.driver_id = d.id WHERE v.driver_id=?";
+    /** Retrieve a vehicle by registration number */
+    public Vehicle getVehicleByRegNo(String regNo) {
+        String sql = "SELECT v.*, d.driver_name FROM vehicle v LEFT JOIN driver d ON v.driver_id = d.id WHERE UPPER(v.registration_number)=UPPER(?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setInt(1, driverId);
+            stmt.setString(1, regNo.trim());
             ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                vehicles.add(mapRow(rs));
-            }
+            if (rs.next()) return mapRow(rs);
 
         } catch (SQLException e) {
-            System.out.println("VehicleDAO.getVehiclesByDriver error: " + e.getMessage());
+            System.out.println("VehicleDAO.getVehicleByRegNo error: " + e.getMessage());
         }
-        return vehicles;
+        return null;
     }
 
-    /** Delete a vehicle record by ID */
-    public boolean deleteVehicle(int id) {
-        String sql = "DELETE FROM vehicle WHERE id=?";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setInt(1, id);
-            return stmt.executeUpdate() > 0;
-
-        } catch (SQLException e) {
-            System.out.println("VehicleDAO.deleteVehicle error: " + e.getMessage());
-            return false;
-        }
-    }
-
-    /** Helper: convert ResultSet row into a Vehicle object */
+    /** Helper: convert a ResultSet row into a Vehicle object */
     private Vehicle mapRow(ResultSet rs) throws SQLException {
         Vehicle v = new Vehicle();
         v.setId(rs.getInt("id"));
         v.setRegistrationNumber(rs.getString("registration_number"));
         v.setVehicleType(rs.getString("vehicle_type"));
         v.setDriverId(rs.getInt("driver_id"));
-        v.setDriverName(rs.getString("driver_name"));
+        v.setDriverName(rs.getString("driver_name") != null ? rs.getString("driver_name") : "Unassigned");
         v.setStatus(rs.getString("status"));
         return v;
     }

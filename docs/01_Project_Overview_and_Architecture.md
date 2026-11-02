@@ -1,134 +1,59 @@
-# 🚛 Document 1: Project Overview & Architecture
+# Document 01: Project Overview & Multi-Tenant Architecture
 
-## Transport Trip Management & Automated Invoice Generation System
-**Developed with Core Java, Java Swing, and MySQL**
+## 1. Project Introduction
+**MOT LOGISTICS** is an enterprise-grade desktop Transport Trip Management and Automated Monthly Billing System built entirely in **Core Java** (Swing GUI + JDBC + MySQL). 
 
----
-
-## 1. Executive Summary
-
-Transport businesses operating commercial vehicle fleets (such as tempos, pickup vans, trucks, and trailers) routinely face logistical headaches when tracking daily trips, managing multiple client companies, coordinating drivers, and calculating monthly billing.
-
-Historically, small and medium transport enterprises manage their daily operations using:
-- Physical notebooks, paper logbooks, and trip registers.
-- Manual trip receipts and handwritten carbon-copy vouchers.
-- Mental math or manual pocket calculators at month-end to generate invoices.
-
-### Problems with the Manual Process
-1. **Lost Records & Calculation Errors:** Loose sheets get misplaced, and human error in tallying amounts leads to billing disputes with clients.
-2. **Slow Billing Cycles:** Manually compiling 30 days of trips for dozens of vehicles takes days, delaying payment collection.
-3. **Lack of Central Visibility:** Business owners cannot readily see who has paid, who owes money, or which vehicles are generating the most revenue.
-
-### The Digital Solution
-This application computerizes the entire operational lifecycle:
-- **Drivers** log in from any terminal or workstation, select their vehicle, specify source, destination, and fare amount, and save trip records in seconds.
-- **Admin** has a single centralized dashboard displaying registered companies, active drivers, vehicles, monthly gross earnings, and outstanding payment balances.
-- **One-Click Invoice Engine:** At month end, selecting a company, month, and year automatically aggregates all eligible trips, calculates the exact billing total, prepares an invoice ledger, and exports a print-ready formatted invoice.
+The software eliminates manual notebooks, paper registers, and handwritten billing for transport and logistics businesses that supply commercial fleets (tempos, pickup vans, trucks, heavy trailers) to various corporate client companies.
 
 ---
 
-## 2. System Architecture & High-Level Flow
+## 2. Actual Business Model & Multi-Tenancy
 
-The project follows a clean **Three-Tier Architecture** without relying on complex frameworks (no Spring Boot, Hibernate, JSP, or Servlets), making it simple to understand, modify, and maintain:
+In the transport sector, independent drivers and vehicle owners provide freight transportation services across multiple client companies:
+- **Om Sai** (Industrial & Manufacturing in Wada / MIDC)
+- **Oracle** (Corporate IT & Data Center Infrastructure in Thane / Mumbai)
+- **Company XYZ** (Logistics & Super Hub Distribution in Bhiwandi)
 
-```
-┌────────────────────────────────────────────────────────┐
-│                   PRESENTATION LAYER                   │
-│                       Java Swing                       │
-│  (LoginFrame, AdminDashboard, DriverDashboard, Panels) │
-└──────────────────────────┬─────────────────────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│                    BUSINESS & DAO                      │
-│             Data Access Objects & Models               │
-│  (AdminDAO, DriverDAO, CompanyDAO, VehicleDAO, TripDAO)│
-│  (InvoiceDAO, PaymentDAO, InvoiceGenerator, Validation)│
-└──────────────────────────┬─────────────────────────────┘
-                           │
-                           ▼ JDBC
-┌────────────────────────────────────────────────────────┐
-│                    PERSISTENCE LAYER                   │
-│                     MySQL Database                     │
-│    (admin, company, driver, vehicle, trip, invoice)    │
-└────────────────────────────────────────────────────────┘
-```
+### Key Architectural Rule: Multi-Tenant Company Isolation
+1. **Company Admin Login:** Each company is an independent tenant with its own credentials (`username` or `email` + `password`).
+2. **Strict Isolation:** When Om Sai logs in, the dashboard and reports show **only** Om Sai records. Om Sai can **never** see Oracle or Company XYZ records.
+3. **Cross-Company Driver Portability:** Independent drivers (Rahul, Amit, Sagar) can work for multiple companies. When Rahul logs in, he can see his trips for Om Sai as well as his trips for Oracle, but he cannot see Amit's or Sagar's records.
 
 ---
 
-## 3. Technology Stack Breakdown
+## 3. Two Types of User Roles
 
-| Layer | Technology | Version / Specification | Justification |
-|---|---|---|---|
-| **Language** | Core Java | JDK 8 to JDK 27 compatible | Pure standard library, readable OOP code |
-| **User Interface** | Java Swing & AWT | Standard Java Desktop GUI | Native cross-platform desktop UI without web server |
-| **Database** | MySQL | MySQL 5.7+ / 8.0+ / 9.x | Robust relational database with ACID guarantees |
-| **Connectivity** | JDBC | `mysql-connector-j` 8.x | Direct PreparedStatement interaction, prevents SQL injection |
-| **Document Output** | Plain Text / OpenPDF | Stream-based File I/O | Instant text ledger generation with optional PDF support |
-| **Build & Run** | Shell Scripts | `build.sh` & `run.sh` | One-command compilation and launch on macOS/Linux |
+### Role A: Company Admin Login
+- **Login Credentials:** Username or Email (`omsai`/`omsai123`, `oracle`/`oracle123`, `xyz`/`xyz123`).
+- **Dashboard Sections:**
+  1. **Dashboard:** Total trips completed for company, total drivers engaged, total vehicles employed, current month billing, paid invoices, pending receivables.
+  2. **Drivers:** Roster of drivers who have hauled goods for this company with vehicle numbers and total trip counts. Double-clicking any driver opens their trip records for this company with a prominent **Download Invoice** button.
+  3. **Trip Management:** Comprehensive company trips audit ledger with filters (driver, vehicle, month, year, search route) and PDF export.
+  4. **Monthly Invoice:** Real-time billing calculation, trip preview, automated monthly invoice generation, and instant PDF download.
+  5. **Payment Management:** Invoices settlement tracking (Total, Paid, Remaining, Status: Paid / Partially Paid / Pending) with a payment recording dialog.
+  6. **Company Profile:** Manage company profile, address, GSTIN, contact details, and password.
+
+### Role B: Driver / Vehicle Owner Login
+- **Login Credentials:** Username or Email (`rahul`/`rahul123`, `amit`/`amit123`, `sagar`/`sagar123`).
+- **Dashboard Sections:**
+  1. **Dashboard:** Total trips completed, total companies worked with, lifetime earnings, current month trips, completed payments, pending balance.
+  2. **Add New Trip:** Daily trip entry form (Company dropdown, Vehicle dropdown, date, route, goods description, amount, remarks) with auto-generated sequential Trip ID.
+  3. **My Trip History:** Complete trip log across all companies with multi-filter search, individual trip receipt PDF export, and full statement PDF download.
+  4. **My Vehicles:** View and register multiple commercial vehicles owned or operated by the driver.
+  5. **My Monthly Invoices:** Select client company + billing period, view trips completed for that company, see total payable amount, generate driver-wise invoice, and download PDF.
+  6. **Profile & Settings:** Self-service mobile, email, and password management.
 
 ---
 
-## 4. Key Functional Modules
+## 4. Technology Stack & Design Constraints
 
-```
-                    ┌─────────────────────────┐
-                    │      Login Screen       │
-                    └────────────┬────────────┘
-                                 │
-                 ┌───────────────┴───────────────┐
-                 ▼                               ▼
-       [Admin Authentication]          [Driver Authentication]
-                 │                               │
-                 ▼                               ▼
-       ┌───────────────────┐           ┌───────────────────┐
-       │  Admin Dashboard  │           │ Driver Dashboard  │
-       └─────────┬─────────┘           └─────────┬─────────┘
-                 │                               │
- ┌───────────────┼───────────────┐       ┌───────┴───────┐
- ▼               ▼               ▼       ▼               ▼
-Company       Driver          Vehicle  Trip Entry    Trip History
-Manager       Manager         Manager  (Realtime)    (Driver's Own)
- │               │               │
- └───────────────┼───────────────┘
-                 ▼
-       ┌───────────────────┐
-       │   Trip History    │
-       │ (Filter & Audit)  │
-       └─────────┬─────────┘
-                 ▼
-       ┌───────────────────┐
-       │ Invoice Generator │
-       │ (Monthly Ledger)  │
-       └─────────┬─────────┘
-                 ▼
-       ┌───────────────────┐
-       │ Payment Tracking  │
-       │(Paid/Part/Pending)│
-       └───────────────────┘
-```
+| Component | Technology | Rationale |
+|---|---|---|
+| Programming Language | Core Java (JDK 8+) | Easiest to read, zero third-party framework overhead |
+| User Interface | Java Swing (`javax.swing`, `java.awt`) | Native desktop application, responsive high-contrast UI |
+| Database | MySQL 8.x | High-performance relational database with ACID compliance |
+| DB Connectivity | JDBC (`java.sql.*`) | Native prepared statements preventing SQL injection |
+| PDF Generation | Native PDF 1.4 Binary Stream Engine | Pure Core Java (zero third-party JAR dependencies) |
+| Architecture Pattern | Layered MVC + DAO Pattern | Clean separation between Model, Data Access, and View |
 
-1. **Authentication Module:**
-   - Dual-tab entry: Admin credentials or Driver credentials.
-   - Prevents unauthorized access and scopes permissions.
-2. **Company Management Module:**
-   - Full CRUD: Add client companies, edit addresses, phone numbers, and GSTIN.
-3. **Driver Management Module:**
-   - Registration of drivers, license numbers, phone numbers, and login credentials.
-   - Ability to activate or suspend driver privileges.
-4. **Vehicle Fleet Management Module:**
-   - Registry of vehicle types (Tempo, Pickup, Truck, Trailer).
-   - Dynamic assignment of vehicle to responsible driver.
-5. **Daily Trip Entry Module:**
-   - Auto-generated trip codes (e.g., `TRIP001`, `TRIP002`).
-   - Auto-fills logged-in driver's information.
-   - Restricts vehicle dropdown to the driver's assigned vehicles.
-6. **Trip Audit & Search Module:**
-   - Filter by Company, Driver, Vehicle, Month, and Year.
-   - Admin can edit or delete invalid records.
-7. **Automated Monthly Billing Engine:**
-   - Automatic aggregation of all trips by company and billing cycle.
-   - Total calculation, formatted preview, and file export.
-8. **Payment Tracker:**
-   - Automatically initializes a payment entry upon invoice generation.
-   - Tracks received amount, balance due, payment date, and status.
+> **Strict Architectural Constraint:** No Spring Boot, Hibernate, JSP, Servlets, or web frameworks are used. Everything is written using foundational Core Java concepts.
