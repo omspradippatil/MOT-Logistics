@@ -292,14 +292,30 @@ public class TripHistoryPanel extends JPanel implements Refreshable {
             return;
         }
 
-        File defaultDir = new File("invoices");
-        if (!defaultDir.exists()) defaultDir.mkdirs();
+        String safeDriver = (trip.getDriverName() != null ? trip.getDriverName() : "Driver").replaceAll("\\s+", "_");
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(new File(System.getProperty("user.home") + "/Desktop",
+                "Receipt_" + trip.getTripCode() + "_" + safeDriver + ".pdf"));
 
-        String pdfName = "Receipt_" + trip.getTripCode() + ".pdf";
-        String txtName = "Receipt_" + trip.getTripCode() + ".txt";
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
 
-        File pdfFile = new File(defaultDir, pdfName);
-        File txtFile = new File(defaultDir, txtName);
+        File pdfFile = chooser.getSelectedFile();
+        if (!pdfFile.getName().toLowerCase().endsWith(".pdf")) {
+            pdfFile = new File(pdfFile.getParentFile(), pdfFile.getName() + ".pdf");
+        }
+        if (pdfFile.exists()) {
+            int res = JOptionPane.showConfirmDialog(this,
+                "The file \"" + pdfFile.getName() + "\" already exists.\nDo you want to overwrite it?",
+                "Confirm File Overwrite",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+            if (res != JOptionPane.YES_OPTION) return;
+        }
+
+        String txtPath = pdfFile.getAbsolutePath().replaceFirst("(?i)\\.pdf$", ".txt");
+        File txtFile = new File(txtPath);
 
         boolean pdfOk = InvoiceGenerator.generateTripReceiptPDF(trip, pdfFile.getAbsolutePath());
         boolean txtOk = InvoiceGenerator.generateTripReceiptText(trip, txtFile.getAbsolutePath());
@@ -337,14 +353,29 @@ public class TripHistoryPanel extends JPanel implements Refreshable {
             return;
         }
 
-        File defaultDir = new File("invoices");
-        if (!defaultDir.exists()) defaultDir.mkdirs();
-
         String monthStr = (String) monthFilterCombo.getSelectedItem();
         String yearStr  = (String) yearFilterCombo.getSelectedItem();
         String fileName = "Trips_Report_" + monthStr.replaceAll("[^a-zA-Z0-9]", "") + "_" + yearStr + ".pdf";
 
-        File targetFile = new File(defaultDir, fileName);
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(new File(System.getProperty("user.home") + "/Desktop", fileName));
+
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File targetFile = chooser.getSelectedFile();
+        if (!targetFile.getName().toLowerCase().endsWith(".pdf")) {
+            targetFile = new File(targetFile.getParentFile(), targetFile.getName() + ".pdf");
+        }
+        if (targetFile.exists()) {
+            int res = JOptionPane.showConfirmDialog(this,
+                "The file \"" + targetFile.getName() + "\" already exists.\nDo you want to overwrite it?",
+                "Confirm File Overwrite",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+            if (res != JOptionPane.YES_OPTION) return;
+        }
 
         String title = "MOT LOGISTICS - COMPREHENSIVE TRIP AUDIT REPORT";
         String subtitle = "Period: " + monthStr + " " + yearStr + " | Total Records: " + currentLoadedTrips.size();

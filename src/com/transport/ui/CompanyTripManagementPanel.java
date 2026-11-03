@@ -213,11 +213,16 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
         viewDetailsBtn.setPreferredSize(new Dimension(160, 36));
         viewDetailsBtn.addActionListener(e -> showSelectedTripDetails());
 
+        ModernButton receiptBtn = new ModernButton("🧾 Download Receipt (PDF)", UITheme.AMBER_ORANGE);
+        receiptBtn.setPreferredSize(new Dimension(190, 36));
+        receiptBtn.addActionListener(e -> downloadSelectedTripReceipt());
+
         ModernButton exportPdfBtn = new ModernButton("📥 Export Trips PDF", UITheme.SUCCESS_GREEN);
         exportPdfBtn.setPreferredSize(new Dimension(160, 36));
         exportPdfBtn.addActionListener(e -> exportTripsPDF());
 
         actionBtnBar.add(viewDetailsBtn);
+        actionBtnBar.add(receiptBtn);
         actionBtnBar.add(exportPdfBtn);
 
         bottomPanel.add(summaryCard, BorderLayout.NORTH);
@@ -368,6 +373,48 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
         JOptionPane.showMessageDialog(this, message, "Trip Details - " + trip.getTripCode(), JOptionPane.INFORMATION_MESSAGE);
     }
 
+    private void downloadSelectedTripReceipt() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a trip row to download its official receipt.", "Select Trip", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int tripId = (int) tableModel.getValueAt(row, 0);
+        Trip trip = tripDAO.getTripById(tripId);
+        if (trip == null) {
+            JOptionPane.showMessageDialog(this, "Failed to load trip details from database.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String safeDriver = (trip.getDriverName() != null ? trip.getDriverName() : "Driver").replaceAll("\\s+", "_");
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(new File(System.getProperty("user.home") + "/Desktop",
+                "Receipt_" + trip.getTripCode() + "_" + safeDriver + ".pdf"));
+
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File targetFile = chooser.getSelectedFile();
+            if (!targetFile.getName().toLowerCase().endsWith(".pdf")) {
+                targetFile = new File(targetFile.getParentFile(), targetFile.getName() + ".pdf");
+            }
+            if (targetFile.exists()) {
+                int res = JOptionPane.showConfirmDialog(this,
+                    "The file \"" + targetFile.getName() + "\" already exists.\nDo you want to overwrite it?",
+                    "Confirm File Overwrite",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+                if (res != JOptionPane.YES_OPTION) return;
+            }
+
+            String path = targetFile.getAbsolutePath();
+            if (InvoiceGenerator.generateTripReceiptPDF(trip, path)) {
+                JOptionPane.showMessageDialog(this, "Official Trip Receipt PDF generated successfully!\n" + path, "Receipt Saved", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to create PDF receipt.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
     private void exportTripsPDF() {
         if (currentTrips.isEmpty()) {
             JOptionPane.showMessageDialog(this, "No trips to export.", "Empty", JOptionPane.WARNING_MESSAGE);
@@ -379,7 +426,20 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
                 "Trips_Report_" + companyAdmin.getCompanyName().replaceAll("\\s+", "_") + ".pdf"));
 
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            String path = chooser.getSelectedFile().getAbsolutePath();
+            File targetFile = chooser.getSelectedFile();
+            if (!targetFile.getName().toLowerCase().endsWith(".pdf")) {
+                targetFile = new File(targetFile.getParentFile(), targetFile.getName() + ".pdf");
+            }
+            if (targetFile.exists()) {
+                int res = JOptionPane.showConfirmDialog(this,
+                    "The file \"" + targetFile.getName() + "\" already exists.\nDo you want to overwrite it?",
+                    "Confirm File Overwrite",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+                if (res != JOptionPane.YES_OPTION) return;
+            }
+
+            String path = targetFile.getAbsolutePath();
             String title = "TRIP AUDIT REPORT - " + companyAdmin.getCompanyName().toUpperCase();
             String subtitle = "Filtered Operational Logistics Records";
 

@@ -143,10 +143,10 @@ public class InvoiceGenerator {
                 sb.append("0.06 0.15 0.33 rg\n");
                 sb.append("BT /F1 9 Tf 46 659 Td (Sr.) Tj ET\n");
                 sb.append("BT /F1 9 Tf 68 659 Td (Trip Date) Tj ET\n");
-                sb.append("BT /F1 9 Tf 130 659 Td (Driver Name) Tj ET\n");
-                sb.append("BT /F1 9 Tf 205 659 Td (Vehicle Reg.) Tj ET\n");
-                sb.append("BT /F1 9 Tf 285 659 Td (Route (From -> To)) Tj ET\n");
-                sb.append("BT /F1 9 Tf 468 659 Td (Amount (INR)) Tj ET\n");
+                sb.append("BT /F1 9 Tf 120 659 Td (Driver Name) Tj ET\n");
+                sb.append("BT /F1 9 Tf 235 659 Td (Vehicle Reg.) Tj ET\n");
+                sb.append("BT /F1 9 Tf 310 659 Td (Route (From -> To)) Tj ET\n");
+                sb.append("BT /F1 9 Tf 470 659 Td (Amount (INR)) Tj ET\n");
 
                 int y = 632;
                 int pageTripsRendered = 0;
@@ -159,19 +159,19 @@ public class InvoiceGenerator {
                     sb.append("40 ").append(y - 5).append(" 515 0.5 re f\n");
 
                     String dName = trip.getDriverName() != null ? trip.getDriverName() : "-";
-                    if (dName.length() > 13) dName = dName.substring(0, 11) + "..";
+                    if (dName.length() > 22) dName = dName.substring(0, 20) + "..";
                     String vNo   = trip.getVehicleNumber() != null ? trip.getVehicleNumber() : "-";
-                    if (vNo.length() > 13) vNo = vNo.substring(0, 11) + "..";
+                    if (vNo.length() > 14) vNo = vNo.substring(0, 12) + "..";
                     String route = trip.getSourceLocation() + " -> " + trip.getDestination();
-                    if (route.length() > 28) route = route.substring(0, 26) + "..";
+                    if (route.length() > 32) route = route.substring(0, 30) + "..";
 
                     sb.append("0.15 0.15 0.15 rg\n");
-                    sb.append("BT /F2 8.5 Tf 46 ").append(y).append(" Td (").append(tripIndex + 1).append(") Tj ET\n");
-                    sb.append("BT /F2 8.5 Tf 68 ").append(y).append(" Td (").append(sdf.format(trip.getTripDate())).append(") Tj ET\n");
-                    sb.append("BT /F2 8.5 Tf 130 ").append(y).append(" Td (").append(cleanPdfText(dName)).append(") Tj ET\n");
-                    sb.append("BT /F2 8.5 Tf 205 ").append(y).append(" Td (").append(cleanPdfText(vNo)).append(") Tj ET\n");
-                    sb.append("BT /F2 8.5 Tf 285 ").append(y).append(" Td (").append(cleanPdfText(route)).append(") Tj ET\n");
-                    sb.append("BT /F2 8.5 Tf 468 ").append(y).append(" Td (").append(String.format("%,.2f", trip.getAmount())).append(") Tj ET\n");
+                    sb.append("BT /F2 8 Tf 46 ").append(y).append(" Td (").append(tripIndex + 1).append(") Tj ET\n");
+                    sb.append("BT /F2 8 Tf 68 ").append(y).append(" Td (").append(sdf.format(trip.getTripDate())).append(") Tj ET\n");
+                    sb.append("BT /F2 8 Tf 120 ").append(y).append(" Td (").append(cleanPdfText(dName)).append(") Tj ET\n");
+                    sb.append("BT /F2 8 Tf 235 ").append(y).append(" Td (").append(cleanPdfText(vNo)).append(") Tj ET\n");
+                    sb.append("BT /F2 8 Tf 310 ").append(y).append(" Td (").append(cleanPdfText(route)).append(") Tj ET\n");
+                    sb.append("BT /F2 8 Tf 470 ").append(y).append(" Td (").append(String.format("%,.2f", trip.getAmount())).append(") Tj ET\n");
 
                     y -= 20;
                     tripIndex++;
@@ -299,12 +299,45 @@ public class InvoiceGenerator {
             sb.append("BT /F1 12 Tf 55 715 Td (Receipt No: REC-").append(cleanPdfText(trip.getTripCode())).append(") Tj ET\n");
             sb.append("BT /F1 10 Tf 370 715 Td (Trip Date: ").append(sdf.format(trip.getTripDate())).append(") Tj ET\n");
 
+            String driverName = trip.getDriverName();
+            if ((driverName == null || driverName.trim().isEmpty() || driverName.equals("-")) && trip.getDriverId() > 0) {
+                try {
+                    com.transport.model.Driver d = new com.transport.dao.DriverDAO().getDriverById(trip.getDriverId());
+                    if (d != null && d.getDriverName() != null && !d.getDriverName().trim().isEmpty()) {
+                        driverName = d.getDriverName();
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (driverName == null || driverName.trim().isEmpty()) driverName = "Fleet Driver";
+
+            String compName = trip.getCompanyName();
+            if ((compName == null || compName.trim().isEmpty() || compName.equals("-")) && trip.getCompanyId() > 0) {
+                try {
+                    com.transport.model.Company c = new com.transport.dao.CompanyDAO().getCompanyById(trip.getCompanyId());
+                    if (c != null && c.getCompanyName() != null && !c.getCompanyName().trim().isEmpty()) {
+                        compName = c.getCompanyName();
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (compName == null || compName.trim().isEmpty()) compName = "Direct Cargo Client";
+
+            String vehNum = trip.getVehicleNumber();
+            if ((vehNum == null || vehNum.trim().isEmpty() || vehNum.equals("-")) && trip.getVehicleId() > 0) {
+                try {
+                    com.transport.model.Vehicle v = new com.transport.dao.VehicleDAO().getVehicleById(trip.getVehicleId());
+                    if (v != null && v.getRegistrationNumber() != null && !v.getRegistrationNumber().trim().isEmpty()) {
+                        vehNum = v.getRegistrationNumber();
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (vehNum == null || vehNum.trim().isEmpty()) vehNum = "Fleet Commercial Vehicle";
+
             int y = 670;
             String[][] fields = {
                 {"Trip Reference Code", trip.getTripCode()},
-                {"Client / Consignor",  trip.getCompanyName() != null ? trip.getCompanyName() : "Direct Cargo Client"},
-                {"Driver In-Charge",     trip.getDriverName() != null ? trip.getDriverName() : "Fleet Driver"},
-                {"Vehicle Reg. Number", trip.getVehicleNumber() != null ? trip.getVehicleNumber() : "Fleet Commercial Vehicle"},
+                {"Client / Consignor",  compName},
+                {"Driver In-Charge (Full Name)", driverName},
+                {"Vehicle Reg. Number", vehNum},
                 {"Origin (Pickup)",     trip.getSourceLocation()},
                 {"Destination (Drop)",  trip.getDestination()},
                 {"Remarks / Consignment Notes", trip.getRemarks() != null && !trip.getRemarks().isEmpty() ? trip.getRemarks() : "Commercial logistics transit completed"}
@@ -312,7 +345,7 @@ public class InvoiceGenerator {
 
             for (String[] row : fields) {
                 String val = row[1] != null ? row[1] : "-";
-                if (val.length() > 48) val = val.substring(0, 45) + "..";
+                if (val.length() > 50) val = val.substring(0, 48) + "..";
                 sb.append("BT /F1 10 Tf 55 ").append(y).append(" Td (").append(cleanPdfText(row[0])).append(":) Tj ET\n");
                 sb.append("BT /F2 10 Tf 220 ").append(y).append(" Td (").append(cleanPdfText(val)).append(") Tj ET\n");
                 sb.append("0.88 0.9 0.94 rg\n");
@@ -334,11 +367,11 @@ public class InvoiceGenerator {
             sb.append("0.2 0.2 0.2 rg\n");
             sb.append("55 ").append(sigY + 30).append(" 180 1 re f\n");
             sb.append("BT /F1 9 Tf 55 ").append(sigY + 15).append(" Td (Driver Signature) Tj ET\n");
-            sb.append("BT /F2 8 Tf 55 ").append(sigY + 3).append(" Td (").append(cleanPdfText(trip.getDriverName())).append(") Tj ET\n");
+            sb.append("BT /F2 9 Tf 55 ").append(sigY + 3).append(" Td (").append(cleanPdfText(driverName)).append(") Tj ET\n");
 
             sb.append("355 ").append(sigY + 30).append(" 180 1 re f\n");
             sb.append("BT /F1 9 Tf 355 ").append(sigY + 15).append(" Td (Client / Receiver Acknowledgment) Tj ET\n");
-            sb.append("BT /F2 8 Tf 355 ").append(sigY + 3).append(" Td (Signature & Official Stamp) Tj ET\n");
+            sb.append("BT /F2 9 Tf 355 ").append(sigY + 3).append(" Td (").append(cleanPdfText(compName)).append(") Tj ET\n");
 
             // Footer
             sb.append("0.5 0.5 0.5 rg\n");
@@ -436,10 +469,10 @@ public class InvoiceGenerator {
                 sb.append("40 725 515 22 re f\n");
                 sb.append("0.06 0.15 0.33 rg\n");
                 sb.append("BT /F1 9 Tf 45 732 Td (Trip) Tj ET\n");
-                sb.append("BT /F1 9 Tf 135 732 Td (Date) Tj ET\n");
-                sb.append("BT /F1 9 Tf 198 732 Td (Company) Tj ET\n");
-                sb.append("BT /F1 9 Tf 288 732 Td (Driver) Tj ET\n");
-                sb.append("BT /F1 9 Tf 373 732 Td (From -> To) Tj ET\n");
+                sb.append("BT /F1 9 Tf 115 732 Td (Date) Tj ET\n");
+                sb.append("BT /F1 9 Tf 170 732 Td (Company) Tj ET\n");
+                sb.append("BT /F1 9 Tf 270 732 Td (Driver (Full Name)) Tj ET\n");
+                sb.append("BT /F1 9 Tf 375 732 Td (From -> To) Tj ET\n");
                 sb.append("BT /F1 9 Tf 485 732 Td (Amount (INR)) Tj ET\n");
 
                 int y = 705;
@@ -452,23 +485,23 @@ public class InvoiceGenerator {
 
                     String code = t.getTripCode() != null ? t.getTripCode() : "-";
                     if (code.length() > 14) code = code.substring(0, 12) + "..";
-                    sb.append("BT /F2 8.5 Tf 45 ").append(y).append(" Td (").append(cleanPdfText(code)).append(") Tj ET\n");
+                    sb.append("BT /F2 8 Tf 45 ").append(y).append(" Td (").append(cleanPdfText(code)).append(") Tj ET\n");
 
-                    sb.append("BT /F2 8.5 Tf 135 ").append(y).append(" Td (").append(sdf.format(t.getTripDate())).append(") Tj ET\n");
+                    sb.append("BT /F2 8 Tf 115 ").append(y).append(" Td (").append(sdf.format(t.getTripDate())).append(") Tj ET\n");
 
                     String comp = t.getCompanyName() != null ? t.getCompanyName() : "-";
-                    if (comp.length() > 14) comp = comp.substring(0, 12) + "..";
-                    sb.append("BT /F2 8.5 Tf 198 ").append(y).append(" Td (").append(cleanPdfText(comp)).append(") Tj ET\n");
+                    if (comp.length() > 20) comp = comp.substring(0, 18) + "..";
+                    sb.append("BT /F2 8 Tf 170 ").append(y).append(" Td (").append(cleanPdfText(comp)).append(") Tj ET\n");
 
                     String dname = t.getDriverName() != null ? t.getDriverName() : "-";
-                    if (dname.length() > 13) dname = dname.substring(0, 11) + "..";
-                    sb.append("BT /F2 8.5 Tf 288 ").append(y).append(" Td (").append(cleanPdfText(dname)).append(") Tj ET\n");
+                    if (dname.length() > 22) dname = dname.substring(0, 20) + "..";
+                    sb.append("BT /F2 8 Tf 270 ").append(y).append(" Td (").append(cleanPdfText(dname)).append(") Tj ET\n");
 
                     String route = t.getSourceLocation() + " -> " + t.getDestination();
-                    if (route.length() > 19) route = route.substring(0, 17) + "..";
-                    sb.append("BT /F2 8.5 Tf 373 ").append(y).append(" Td (").append(cleanPdfText(route)).append(") Tj ET\n");
+                    if (route.length() > 22) route = route.substring(0, 20) + "..";
+                    sb.append("BT /F2 8 Tf 375 ").append(y).append(" Td (").append(cleanPdfText(route)).append(") Tj ET\n");
 
-                    sb.append("BT /F2 8.5 Tf 485 ").append(y).append(" Td (").append(String.format("%,.2f", t.getAmount())).append(") Tj ET\n");
+                    sb.append("BT /F2 8 Tf 485 ").append(y).append(" Td (").append(String.format("%,.2f", t.getAmount())).append(") Tj ET\n");
 
                     y -= 19;
                     tripIndex++;
@@ -614,6 +647,39 @@ public class InvoiceGenerator {
         ensureDirectoryExists(filePath);
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
 
+        String driverName = trip.getDriverName();
+        if ((driverName == null || driverName.trim().isEmpty() || driverName.equals("-")) && trip.getDriverId() > 0) {
+            try {
+                com.transport.model.Driver d = new com.transport.dao.DriverDAO().getDriverById(trip.getDriverId());
+                if (d != null && d.getDriverName() != null && !d.getDriverName().trim().isEmpty()) {
+                    driverName = d.getDriverName();
+                }
+            } catch (Exception ignored) {}
+        }
+        if (driverName == null || driverName.trim().isEmpty()) driverName = "Fleet Driver";
+
+        String compName = trip.getCompanyName();
+        if ((compName == null || compName.trim().isEmpty() || compName.equals("-")) && trip.getCompanyId() > 0) {
+            try {
+                com.transport.model.Company c = new com.transport.dao.CompanyDAO().getCompanyById(trip.getCompanyId());
+                if (c != null && c.getCompanyName() != null && !c.getCompanyName().trim().isEmpty()) {
+                    compName = c.getCompanyName();
+                }
+            } catch (Exception ignored) {}
+        }
+        if (compName == null || compName.trim().isEmpty()) compName = "General Client";
+
+        String vehNum = trip.getVehicleNumber();
+        if ((vehNum == null || vehNum.trim().isEmpty() || vehNum.equals("-")) && trip.getVehicleId() > 0) {
+            try {
+                com.transport.model.Vehicle v = new com.transport.dao.VehicleDAO().getVehicleById(trip.getVehicleId());
+                if (v != null && v.getRegistrationNumber() != null && !v.getRegistrationNumber().trim().isEmpty()) {
+                    vehNum = v.getRegistrationNumber();
+                }
+            } catch (Exception ignored) {}
+        }
+        if (vehNum == null || vehNum.trim().isEmpty()) vehNum = "Fleet Vehicle";
+
         try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(new File(filePath)), StandardCharsets.UTF_8))) {
             writer.println("============================================================");
             writer.println("                      " + SERVICE_NAME.toUpperCase());
@@ -622,9 +688,9 @@ public class InvoiceGenerator {
             writer.printf("Receipt Number : REC-%s%n", trip.getTripCode());
             writer.printf("Trip Date      : %s%n", sdf.format(trip.getTripDate()));
             writer.println("------------------------------------------------------------");
-            writer.printf("Client Billed  : %s%n", trip.getCompanyName() != null ? trip.getCompanyName() : "General Client");
-            writer.printf("Driver Name    : %s%n", trip.getDriverName() != null ? trip.getDriverName() : "Fleet Driver");
-            writer.printf("Vehicle Number : %s%n", trip.getVehicleNumber() != null ? trip.getVehicleNumber() : "Fleet Vehicle");
+            writer.printf("Client Billed  : %s%n", compName);
+            writer.printf("Driver Name    : %s (In-Charge)%n", driverName);
+            writer.printf("Vehicle Number : %s%n", vehNum);
             writer.printf("Pickup (From)  : %s%n", trip.getSourceLocation());
             writer.printf("Drop (To)      : %s%n", trip.getDestination());
             writer.printf("Remarks        : %s%n", trip.getRemarks() != null ? trip.getRemarks() : "Standard commercial dispatch");

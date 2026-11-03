@@ -202,7 +202,20 @@ public class DriverTripsDetailDialog extends JDialog {
                 "Invoice_" + companyAdmin.getCompanyName().replaceAll("\\s+", "_") + "_" + driverName + ".pdf"));
 
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            String path = chooser.getSelectedFile().getAbsolutePath();
+            File targetFile = chooser.getSelectedFile();
+            if (!targetFile.getName().toLowerCase().endsWith(".pdf")) {
+                targetFile = new File(targetFile.getParentFile(), targetFile.getName() + ".pdf");
+            }
+            if (targetFile.exists()) {
+                int res = JOptionPane.showConfirmDialog(this,
+                    "The file \"" + targetFile.getName() + "\" already exists.\nDo you want to overwrite it?",
+                    "Confirm File Overwrite",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+                if (res != JOptionPane.YES_OPTION) return;
+            }
+
+            String path = targetFile.getAbsolutePath();
             if (InvoiceGenerator.generatePDF(invoice, trips, path)) {
                 JOptionPane.showMessageDialog(this,
                         "Driver invoice generated successfully!\nFile: " + path,

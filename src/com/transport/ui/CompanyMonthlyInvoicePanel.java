@@ -471,7 +471,20 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
                 "Invoice_" + companyAdmin.getCompanyName().replaceAll("\\s+", "_") + "_" + MONTHS[month - 1] + "_" + year + ".pdf"));
 
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            String path = chooser.getSelectedFile().getAbsolutePath();
+            File targetFile = chooser.getSelectedFile();
+            if (!targetFile.getName().toLowerCase().endsWith(".pdf")) {
+                targetFile = new File(targetFile.getParentFile(), targetFile.getName() + ".pdf");
+            }
+            if (targetFile.exists()) {
+                int res = JOptionPane.showConfirmDialog(this,
+                    "The file \"" + targetFile.getName() + "\" already exists.\nDo you want to overwrite it?",
+                    "Confirm File Overwrite",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+                if (res != JOptionPane.YES_OPTION) return;
+            }
+
+            String path = targetFile.getAbsolutePath();
             if (InvoiceGenerator.generatePDF(invoice, currentPreviewTrips, path)) {
                 JOptionPane.showMessageDialog(this, "Invoice PDF saved successfully!\n" + path, "Success", JOptionPane.INFORMATION_MESSAGE);
             } else {
@@ -498,7 +511,20 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
                 "Invoice_" + inv.getInvoiceNumber() + "_" + companyAdmin.getCompanyName().replaceAll("\\s+", "_") + ".pdf"));
 
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            String path = chooser.getSelectedFile().getAbsolutePath();
+            File targetFile = chooser.getSelectedFile();
+            if (!targetFile.getName().toLowerCase().endsWith(".pdf")) {
+                targetFile = new File(targetFile.getParentFile(), targetFile.getName() + ".pdf");
+            }
+            if (targetFile.exists()) {
+                int res = JOptionPane.showConfirmDialog(this,
+                    "The file \"" + targetFile.getName() + "\" already exists.\nDo you want to overwrite it?",
+                    "Confirm File Overwrite",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+                if (res != JOptionPane.YES_OPTION) return;
+            }
+
+            String path = targetFile.getAbsolutePath();
             if (InvoiceGenerator.generatePDF(inv, trips, path)) {
                 JOptionPane.showMessageDialog(this, "Archived Invoice PDF saved successfully!\n" + path, "Success", JOptionPane.INFORMATION_MESSAGE);
             } else {

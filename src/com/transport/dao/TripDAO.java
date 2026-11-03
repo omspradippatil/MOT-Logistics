@@ -110,9 +110,9 @@ public class TripDAO {
     public Trip getTripById(int id) {
         String sql = "SELECT t.*, c.company_name, d.driver_name, v.registration_number " +
                      "FROM trip t " +
-                     "JOIN company c ON t.company_id = c.id " +
-                     "JOIN driver d ON t.driver_id = d.id " +
-                     "JOIN vehicle v ON t.vehicle_id = v.id " +
+                     "LEFT JOIN company c ON t.company_id = c.id " +
+                     "LEFT JOIN driver d ON t.driver_id = d.id " +
+                     "LEFT JOIN vehicle v ON t.vehicle_id = v.id " +
                      "WHERE t.id=?";
 
         try (Connection conn = DatabaseConnection.getConnection();
