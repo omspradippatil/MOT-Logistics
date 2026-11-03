@@ -37,6 +37,8 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
     private JComboBox<String>  yearCombo;
     private JTextField         searchField;
 
+    private boolean isUpdatingDropdowns = false;
+
     private JLabel summaryLabel;
 
     private TripDAO    tripDAO    = new TripDAO();
@@ -101,7 +103,7 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
         gbc.gridx = 7;
         String[] years = {"All Years", "2024", "2025", "2026", "2027"};
         yearCombo = new JComboBox<>(years);
-        yearCombo.setSelectedItem("2026");
+        yearCombo.setSelectedItem("All Years");
         yearCombo.setFont(UITheme.FONT_BODY);
         yearCombo.setPreferredSize(new Dimension(100, 32));
         filterPanel.add(yearCombo, gbc);
@@ -115,6 +117,18 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
         searchField.setPreferredSize(new Dimension(280, 32));
         searchField.setToolTipText("Search by source, destination or trip code...");
         filterPanel.add(searchField, gbc);
+
+        // Dynamic instant filtering listeners
+        driverCombo.addActionListener(e -> { if (!isUpdatingDropdowns) filterTrips(); });
+        vehicleCombo.addActionListener(e -> { if (!isUpdatingDropdowns) filterTrips(); });
+        monthCombo.addActionListener(e -> { if (!isUpdatingDropdowns) filterTrips(); });
+        yearCombo.addActionListener(e -> { if (!isUpdatingDropdowns) filterTrips(); });
+        searchField.addActionListener(e -> { if (!isUpdatingDropdowns) filterTrips(); });
+        searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { if (!isUpdatingDropdowns) filterTrips(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { if (!isUpdatingDropdowns) filterTrips(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { if (!isUpdatingDropdowns) filterTrips(); }
+        });
 
         gbc.gridx = 4; gbc.gridwidth = 4;
         JPanel btnGroup = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
@@ -215,6 +229,13 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
     }
 
     private void loadFilterDropdowns() {
+        int prevDriverId = (driverCombo != null && driverCombo.getSelectedItem() instanceof Driver)
+                ? ((Driver) driverCombo.getSelectedItem()).getId() : -1;
+        int prevVehicleId = (vehicleCombo != null && vehicleCombo.getSelectedItem() instanceof Vehicle)
+                ? ((Vehicle) vehicleCombo.getSelectedItem()).getId() : -1;
+
+        isUpdatingDropdowns = true;
+
         // Driver combo: only drivers who worked for this company
         driverCombo.removeAllItems();
         Driver allD = new Driver();
@@ -223,12 +244,17 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
         driverCombo.addItem(allD);
 
         List<DriverCompanySummary> summaries = driverDAO.getDriversForCompany(companyAdmin.getCompanyId());
+        Driver toSelectDriver = allD;
         for (DriverCompanySummary s : summaries) {
             Driver d = new Driver();
             d.setId(s.getDriverId());
             d.setDriverName(s.getDriverName());
             driverCombo.addItem(d);
+            if (prevDriverId > 0 && d.getId() == prevDriverId) {
+                toSelectDriver = d;
+            }
         }
+        driverCombo.setSelectedItem(toSelectDriver);
 
         // Vehicle combo: only vehicles used for this company
         vehicleCombo.removeAllItems();
@@ -238,9 +264,16 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
         vehicleCombo.addItem(allV);
 
         List<Vehicle> compVehicles = vehicleDAO.getVehiclesByCompany(companyAdmin.getCompanyId());
+        Vehicle toSelectVeh = allV;
         for (Vehicle v : compVehicles) {
             vehicleCombo.addItem(v);
+            if (prevVehicleId > 0 && v.getId() == prevVehicleId) {
+                toSelectVeh = v;
+            }
         }
+        vehicleCombo.setSelectedItem(toSelectVeh);
+
+        isUpdatingDropdowns = false;
     }
 
     public void filterTrips() {
@@ -291,11 +324,13 @@ public class CompanyTripManagementPanel extends JPanel implements Refreshable {
     }
 
     private void resetFilters() {
+        isUpdatingDropdowns = true;
         if (driverCombo.getItemCount() > 0) driverCombo.setSelectedIndex(0);
         if (vehicleCombo.getItemCount() > 0) vehicleCombo.setSelectedIndex(0);
         monthCombo.setSelectedIndex(0);
-        yearCombo.setSelectedItem("2026");
+        yearCombo.setSelectedItem("All Years");
         searchField.setText("");
+        isUpdatingDropdowns = false;
         filterTrips();
     }
 

@@ -24,6 +24,9 @@ public class PaymentPanel extends JPanel implements Refreshable {
     private JTextField        paymentDateField;
     private JTextField        notesField;
 
+    private JComboBox<String> filterStatusCombo;
+    private JTextField        filterSearchField;
+
     private ModernButton updateBtn;
     private ModernButton refreshBtn;
 
@@ -133,7 +136,46 @@ public class PaymentPanel extends JPanel implements Refreshable {
         JPanel northPanel = new JPanel(new BorderLayout(0, 6));
         northPanel.setOpaque(false);
         northPanel.add(formPanel,  BorderLayout.NORTH);
-        northPanel.add(hintLabel,  BorderLayout.SOUTH);
+
+        // Filter toolbar
+        JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+        filterBar.setBackground(UITheme.CARD_BG);
+        filterBar.setBorder(UITheme.createCardBorder("Filter Accounts Receivable Ledger"));
+
+        filterBar.add(new JLabel("Status:"));
+        filterStatusCombo = new JComboBox<>(new String[]{"All Statuses", "Paid", "Partially Paid", "Pending"});
+        filterStatusCombo.setFont(UITheme.FONT_BODY);
+        filterStatusCombo.setPreferredSize(new Dimension(130, 30));
+        filterStatusCombo.addActionListener(e -> loadPayments());
+        filterBar.add(filterStatusCombo);
+
+        filterBar.add(new JLabel("Search Invoice / Company:"));
+        filterSearchField = new JTextField(15);
+        filterSearchField.setFont(UITheme.FONT_BODY);
+        filterSearchField.setPreferredSize(new Dimension(160, 30));
+        filterSearchField.addActionListener(e -> loadPayments());
+        filterSearchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { loadPayments(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { loadPayments(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { loadPayments(); }
+        });
+        filterBar.add(filterSearchField);
+
+        ModernButton resetFilterBtn = new ModernButton("↺ Reset", UITheme.SECONDARY_GRAY);
+        resetFilterBtn.setPreferredSize(new Dimension(85, 30));
+        resetFilterBtn.addActionListener(e -> {
+            filterStatusCombo.setSelectedIndex(0);
+            filterSearchField.setText("");
+            loadPayments();
+        });
+        filterBar.add(resetFilterBtn);
+
+        JPanel centerNorth = new JPanel(new BorderLayout(0, 4));
+        centerNorth.setOpaque(false);
+        centerNorth.add(hintLabel, BorderLayout.NORTH);
+        centerNorth.add(filterBar, BorderLayout.SOUTH);
+
+        northPanel.add(centerNorth,  BorderLayout.SOUTH);
 
         add(northPanel, BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
@@ -158,7 +200,23 @@ public class PaymentPanel extends JPanel implements Refreshable {
         tableModel.setRowCount(0);
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
 
+        String statusFilter = (filterStatusCombo != null && filterStatusCombo.getSelectedItem() != null)
+                ? (String) filterStatusCombo.getSelectedItem() : "All Statuses";
+        String kw = (filterSearchField != null) ? filterSearchField.getText().trim().toLowerCase() : "";
+
         for (Payment p : paymentDAO.getAllPayments()) {
+            if (!"All Statuses".equalsIgnoreCase(statusFilter) && !statusFilter.equalsIgnoreCase(p.getPaymentStatus())) {
+                continue;
+            }
+            if (!kw.isEmpty()) {
+                String inv = p.getInvoiceNumber() != null ? p.getInvoiceNumber().toLowerCase() : "";
+                String comp = p.getCompanyName() != null ? p.getCompanyName().toLowerCase() : "";
+                String notes = p.getNotes() != null ? p.getNotes().toLowerCase() : "";
+                if (!inv.contains(kw) && !comp.contains(kw) && !notes.contains(kw)) {
+                    continue;
+                }
+            }
+
             tableModel.addRow(new Object[]{
                 p.getId(),
                 p.getInvoiceNumber(),

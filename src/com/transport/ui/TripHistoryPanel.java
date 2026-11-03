@@ -31,6 +31,9 @@ public class TripHistoryPanel extends JPanel implements Refreshable {
     private JComboBox<Company> companyFilterCombo;
     private JComboBox<String>  monthFilterCombo;
     private JComboBox<String>  yearFilterCombo;
+    private JTextField         searchField;
+
+    private boolean isUpdatingDropdowns = false;
 
     private ModernButton searchBtn;
     private ModernButton clearFilterBtn;
@@ -78,7 +81,7 @@ public class TripHistoryPanel extends JPanel implements Refreshable {
         filterPanel.add(new JLabel("Year:"));
         String[] years = {"All Years", "2024", "2025", "2026", "2027"};
         yearFilterCombo = new JComboBox<>(years);
-        yearFilterCombo.setSelectedItem("2026");
+        yearFilterCombo.setSelectedItem("All Years");
         yearFilterCombo.setFont(UITheme.FONT_BODY);
         yearFilterCombo.setPreferredSize(new Dimension(100, 32));
         filterPanel.add(yearFilterCombo);
@@ -107,8 +110,29 @@ public class TripHistoryPanel extends JPanel implements Refreshable {
             filterPanel.add(companyFilterCombo);
         }
 
+        filterPanel.add(new JLabel("Search:"));
+        searchField = new JTextField(12);
+        searchField.setFont(UITheme.FONT_BODY);
+        searchField.setPreferredSize(new Dimension(130, 32));
+        searchField.setToolTipText("Search by location, trip code, vehicle, driver, company, cargo...");
+        filterPanel.add(searchField);
+
         searchBtn      = new ModernButton("🔍 Search", UITheme.BRAND_BLUE);
         clearFilterBtn = new ModernButton("↺ Reset", UITheme.SECONDARY_GRAY);
+
+        // Dynamic instant filtering listeners
+        monthFilterCombo.addActionListener(e -> { if (!isUpdatingDropdowns) loadTrips(); });
+        yearFilterCombo.addActionListener(e -> { if (!isUpdatingDropdowns) loadTrips(); });
+        if (isAdmin) {
+            if (driverFilterCombo != null) driverFilterCombo.addActionListener(e -> { if (!isUpdatingDropdowns) loadTrips(); });
+            if (companyFilterCombo != null) companyFilterCombo.addActionListener(e -> { if (!isUpdatingDropdowns) loadTrips(); });
+        }
+        searchField.addActionListener(e -> { if (!isUpdatingDropdowns) loadTrips(); });
+        searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { if (!isUpdatingDropdowns) loadTrips(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { if (!isUpdatingDropdowns) loadTrips(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { if (!isUpdatingDropdowns) loadTrips(); }
+        });
 
         filterPanel.add(searchBtn);
         filterPanel.add(clearFilterBtn);
@@ -174,6 +198,7 @@ public class TripHistoryPanel extends JPanel implements Refreshable {
 
     @Override
     public void refreshData() {
+        isUpdatingDropdowns = true;
         if (isAdmin && driverFilterCombo != null) {
             Driver selectedDriver = (Driver) driverFilterCombo.getSelectedItem();
             driverFilterCombo.removeAllItems();
@@ -203,6 +228,7 @@ public class TripHistoryPanel extends JPanel implements Refreshable {
                 }
             }
         }
+        isUpdatingDropdowns = false;
 
         loadTrips();
     }
@@ -234,7 +260,8 @@ public class TripHistoryPanel extends JPanel implements Refreshable {
             try { filterYear = Integer.parseInt(yearStr); } catch (Exception ignored) {}
         }
 
-        currentLoadedTrips = tripDAO.getTripsByFilter(filterDriver, filterCompany, -1, filterMonth, filterYear);
+        String kw = (searchField != null) ? searchField.getText().trim() : null;
+        currentLoadedTrips = tripDAO.getTripsByFilter(filterDriver, filterCompany, -1, filterMonth, filterYear, kw);
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
         double total = 0;
 
@@ -390,9 +417,13 @@ public class TripHistoryPanel extends JPanel implements Refreshable {
     }
 
     private void resetFilters() {
+        isUpdatingDropdowns = true;
         monthFilterCombo.setSelectedIndex(0);
-        yearFilterCombo.setSelectedItem("2026");
+        yearFilterCombo.setSelectedItem("All Years");
         if (driverFilterCombo != null)  driverFilterCombo.setSelectedIndex(0);
         if (companyFilterCombo != null) companyFilterCombo.setSelectedIndex(0);
+        if (searchField != null) searchField.setText("");
+        isUpdatingDropdowns = false;
+        loadTrips();
     }
 }

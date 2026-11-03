@@ -53,9 +53,16 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
     private List<Invoice> driverInvoices = new ArrayList<>();
 
     private static final String[] MONTHS = {
+        "-- All Months (Annual / Cumulative) --",
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
     };
+
+    private boolean isUpdatingDropdowns = false;
+
+    private JComboBox<String> archiveStatusCombo;
+    private JComboBox<String> archiveYearCombo;
+    private JTextField         archiveSearchField;
 
     public DriverMonthlyInvoicesPanel(Driver driver) {
         this.driver = driver;
@@ -83,9 +90,9 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
 
         topBar.add(new JLabel("Billing Month:"));
         monthCombo = new JComboBox<>(MONTHS);
-        monthCombo.setSelectedIndex(10); // November
+        monthCombo.setSelectedIndex(0); // All Months
         monthCombo.setFont(UITheme.FONT_BODY);
-        monthCombo.setPreferredSize(new Dimension(130, 32));
+        monthCombo.setPreferredSize(new Dimension(180, 32));
         topBar.add(monthCombo);
 
         topBar.add(new JLabel("Year:"));
@@ -95,6 +102,10 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
         yearCombo.setFont(UITheme.FONT_BODY);
         yearCombo.setPreferredSize(new Dimension(90, 32));
         topBar.add(yearCombo);
+
+        companyCombo.addActionListener(e -> { if (!isUpdatingDropdowns) loadTrips(); });
+        monthCombo.addActionListener(e -> { if (!isUpdatingDropdowns) loadTrips(); });
+        yearCombo.addActionListener(e -> { if (!isUpdatingDropdowns) loadTrips(); });
 
         ModernButton viewBtn = new ModernButton("🔍 View Trips", UITheme.BRAND_BLUE);
         viewBtn.setPreferredSize(new Dimension(130, 34));
@@ -217,17 +228,70 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
         bottomBar.add(downloadArchiveBtn);
         bottomBar.add(refreshArchiveBtn);
 
+        // Archive Filter Toolbar
+        JPanel archiveFilterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+        archiveFilterBar.setBackground(UITheme.CARD_BG);
+        archiveFilterBar.setBorder(UITheme.createCardBorder("Filter Archive Invoices"));
+
+        archiveFilterBar.add(new JLabel("Status:"));
+        archiveStatusCombo = new JComboBox<>(new String[]{"All Statuses", "Paid", "Partially Paid", "Generated"});
+        archiveStatusCombo.setFont(UITheme.FONT_BODY);
+        archiveStatusCombo.setPreferredSize(new Dimension(130, 30));
+        archiveStatusCombo.addActionListener(e -> loadInvoiceArchive());
+        archiveFilterBar.add(archiveStatusCombo);
+
+        archiveFilterBar.add(new JLabel("Year:"));
+        archiveYearCombo = new JComboBox<>(new String[]{"All Years", "2024", "2025", "2026", "2027"});
+        archiveYearCombo.setFont(UITheme.FONT_BODY);
+        archiveYearCombo.setPreferredSize(new Dimension(100, 30));
+        archiveYearCombo.addActionListener(e -> loadInvoiceArchive());
+        archiveFilterBar.add(archiveYearCombo);
+
+        archiveFilterBar.add(new JLabel("Search Invoice / Company:"));
+        archiveSearchField = new JTextField(12);
+        archiveSearchField.setFont(UITheme.FONT_BODY);
+        archiveSearchField.setPreferredSize(new Dimension(150, 30));
+        archiveSearchField.addActionListener(e -> loadInvoiceArchive());
+        archiveSearchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { loadInvoiceArchive(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { loadInvoiceArchive(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { loadInvoiceArchive(); }
+        });
+        archiveFilterBar.add(archiveSearchField);
+
+        ModernButton resetArchiveBtn = new ModernButton("↺ Reset", UITheme.SECONDARY_GRAY);
+        resetArchiveBtn.setPreferredSize(new Dimension(85, 30));
+        resetArchiveBtn.addActionListener(e -> {
+            archiveStatusCombo.setSelectedIndex(0);
+            archiveYearCombo.setSelectedIndex(0);
+            archiveSearchField.setText("");
+            loadInvoiceArchive();
+        });
+        archiveFilterBar.add(resetArchiveBtn);
+
+        panel.add(archiveFilterBar, BorderLayout.NORTH);
         panel.add(scrollPane, BorderLayout.CENTER);
         panel.add(bottomBar,  BorderLayout.SOUTH);
         return panel;
     }
 
     private void loadCompanies() {
+        int prevCompanyId = (companyCombo != null && companyCombo.getSelectedItem() instanceof Company)
+                ? ((Company) companyCombo.getSelectedItem()).getId() : -1;
+        isUpdatingDropdowns = true;
         companyCombo.removeAllItems();
         List<Company> list = companyDAO.getAllCompanies();
+        Company toSelect = null;
         for (Company c : list) {
             companyCombo.addItem(c);
+            if (prevCompanyId > 0 && c.getId() == prevCompanyId) {
+                toSelect = c;
+            }
         }
+        if (toSelect != null) {
+            companyCombo.setSelectedItem(toSelect);
+        }
+        isUpdatingDropdowns = false;
     }
 
     public void loadTrips() {
@@ -235,7 +299,8 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
         if (companyCombo.getSelectedItem() == null) return;
 
         Company comp = (Company) companyCombo.getSelectedItem();
-        int month = monthCombo.getSelectedIndex() + 1;
+        int selectedIdx = monthCombo.getSelectedIndex();
+        int month = (selectedIdx == 0) ? -1 : selectedIdx; // -1 = All Months
         int year = Integer.parseInt((String) yearCombo.getSelectedItem());
 
         // Get trips for this driver and this company
@@ -257,7 +322,8 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
             });
         }
 
-        previewSummaryLabel.setText(comp.getCompanyName() + " (" + MONTHS[month - 1] + " " + year + ")  |  Total Trips: " +
+        String monthStr = (month <= 0) ? "All Months" : MONTHS[month];
+        previewSummaryLabel.setText(comp.getCompanyName() + " (" + monthStr + " " + year + ")  |  Total Trips: " +
                 currentTrips.size() + "  |  Total Payable Amount: ₹ " + String.format("%,.2f", totalAmount));
     }
 
@@ -266,13 +332,39 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
 
         driverInvoices = invoiceDAO.getInvoicesByDriver(driver.getId());
+
+        String statusFilter = (archiveStatusCombo != null && archiveStatusCombo.getSelectedItem() != null)
+                ? (String) archiveStatusCombo.getSelectedItem() : "All Statuses";
+        String yearFilter = (archiveYearCombo != null && archiveYearCombo.getSelectedItem() != null)
+                ? (String) archiveYearCombo.getSelectedItem() : "All Years";
+        String kw = (archiveSearchField != null) ? archiveSearchField.getText().trim().toLowerCase() : "";
+
         for (Invoice inv : driverInvoices) {
+            if (!"All Statuses".equalsIgnoreCase(statusFilter) && !statusFilter.equalsIgnoreCase(inv.getStatus())) {
+                continue;
+            }
+            if (!"All Years".equalsIgnoreCase(yearFilter)) {
+                try {
+                    int y = Integer.parseInt(yearFilter);
+                    if (inv.getBillingYear() != y) continue;
+                } catch (NumberFormatException ignored) {}
+            }
+            if (!kw.isEmpty()) {
+                String invNum = inv.getInvoiceNumber() != null ? inv.getInvoiceNumber().toLowerCase() : "";
+                String compName = inv.getCompanyName() != null ? inv.getCompanyName().toLowerCase() : "";
+                if (!invNum.contains(kw) && !compName.contains(kw)) continue;
+            }
+
+            String period = (inv.getBillingMonth() <= 0 || inv.getBillingMonth() >= MONTHS.length)
+                    ? "All Months " + inv.getBillingYear()
+                    : MONTHS[inv.getBillingMonth()] + " " + inv.getBillingYear();
+
             archiveTableModel.addRow(new Object[]{
                 inv.getId(),
                 inv.getInvoiceNumber(),
                 sdf.format(inv.getInvoiceDate()),
                 inv.getCompanyName(),
-                MONTHS[Math.max(0, inv.getBillingMonth() - 1)] + " " + inv.getBillingYear(),
+                period,
                 inv.getTotalTrips(),
                 String.format("₹ %,.2f", inv.getTotalAmount()),
                 String.format("₹ %,.2f", inv.getAmountPaid()),
@@ -288,20 +380,24 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
         }
 
         Company comp = (Company) companyCombo.getSelectedItem();
-        int month = monthCombo.getSelectedIndex() + 1;
+        int selectedIdx = monthCombo.getSelectedIndex();
+        int month = (selectedIdx == 0) ? -1 : selectedIdx;
         int year = Integer.parseInt((String) yearCombo.getSelectedItem());
 
         double total = 0.0;
         for (Trip t : currentTrips) total += t.getAmount();
 
+        String monthTag = (month <= 0) ? "ALL" : String.format("%02d", month);
+        String periodStr = (month <= 0) ? "All Months " + year : MONTHS[month] + " " + year;
+
         Invoice invoice = new Invoice();
-        invoice.setInvoiceNumber("INV-DRV-" + driver.getId() + "-" + String.format("%02d", month));
+        invoice.setInvoiceNumber("INV-DRV-" + driver.getId() + "-" + monthTag);
         invoice.setInvoiceDate(new Date());
         invoice.setCompanyId(comp.getId());
         invoice.setCompanyName(comp.getCompanyName());
         invoice.setDriverId(driver.getId());
         invoice.setDriverName(driver.getDriverName());
-        invoice.setBillingMonth(month);
+        invoice.setBillingMonth(month <= 0 ? 0 : month);
         invoice.setBillingYear(year);
         invoice.setTotalTrips(currentTrips.size());
         invoice.setTotalAmount(total);
@@ -315,7 +411,7 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
                 "Driver Monthly Invoice Generated Successfully!\n\n" +
                 "Invoice Number  : " + invoice.getInvoiceNumber() + "\n" +
                 "Company         : " + comp.getCompanyName() + "\n" +
-                "Billing Period  : " + MONTHS[month - 1] + " " + year + "\n" +
+                "Billing Period  : " + periodStr + "\n" +
                 "Total Trips     : " + invoice.getTotalTrips() + "\n" +
                 "Total Earnings  : ₹ " + String.format("%,.2f", total),
                 "Invoice Created", JOptionPane.INFORMATION_MESSAGE);
@@ -333,20 +429,24 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
         }
 
         Company comp = (Company) companyCombo.getSelectedItem();
-        int month = monthCombo.getSelectedIndex() + 1;
+        int selectedIdx = monthCombo.getSelectedIndex();
+        int month = (selectedIdx == 0) ? -1 : selectedIdx;
         int year = Integer.parseInt((String) yearCombo.getSelectedItem());
 
         double total = 0.0;
         for (Trip t : currentTrips) total += t.getAmount();
 
+        String monthTag = (month <= 0) ? "ALL" : String.format("%02d", month);
+        String monthFileTag = (month <= 0) ? "ALL" : MONTHS[month];
+
         Invoice invoice = new Invoice();
-        invoice.setInvoiceNumber("INV-" + driver.getDriverName().toUpperCase() + "-" + year + "-" + String.format("%02d", month));
+        invoice.setInvoiceNumber("INV-" + driver.getDriverName().toUpperCase() + "-" + year + "-" + monthTag);
         invoice.setInvoiceDate(new Date());
         invoice.setCompanyId(comp.getId());
         invoice.setCompanyName(comp.getCompanyName());
         invoice.setDriverId(driver.getId());
         invoice.setDriverName(driver.getDriverName());
-        invoice.setBillingMonth(month);
+        invoice.setBillingMonth(month <= 0 ? 0 : month);
         invoice.setBillingYear(year);
         invoice.setTotalTrips(currentTrips.size());
         invoice.setTotalAmount(total);
@@ -355,7 +455,7 @@ public class DriverMonthlyInvoicesPanel extends JPanel implements Refreshable {
 
         JFileChooser chooser = new JFileChooser();
         chooser.setSelectedFile(new File(System.getProperty("user.home") + "/Desktop",
-                "Invoice_" + driver.getDriverName() + "_" + comp.getCompanyName().replaceAll("\\s+", "_") + "_" + MONTHS[month - 1] + "_" + year + ".pdf"));
+                "Invoice_" + driver.getDriverName() + "_" + comp.getCompanyName().replaceAll("\\s+", "_") + "_" + monthFileTag + "_" + year + ".pdf"));
 
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             String path = chooser.getSelectedFile().getAbsolutePath();

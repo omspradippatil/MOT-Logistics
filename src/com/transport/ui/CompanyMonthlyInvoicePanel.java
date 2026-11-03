@@ -41,6 +41,10 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
     private JTable            archiveTable;
     private DefaultTableModel archiveTableModel;
 
+    private JComboBox<String> archiveStatusCombo;
+    private JComboBox<String> archiveYearCombo;
+    private JTextField         archiveSearchField;
+
     private TripDAO    tripDAO    = new TripDAO();
     private InvoiceDAO invoiceDAO = new InvoiceDAO();
 
@@ -48,6 +52,7 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
     private List<Invoice> companyInvoices     = new ArrayList<>();
 
     private static final String[] MONTHS = {
+        "-- All Months (Annual / Cumulative) --",
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
     };
@@ -71,9 +76,10 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
 
         topBar.add(new JLabel("Select Billing Month:"));
         monthCombo = new JComboBox<>(MONTHS);
-        monthCombo.setSelectedIndex(10); // Default to November
+        monthCombo.setSelectedIndex(11); // Default to November
         monthCombo.setFont(UITheme.FONT_BODY_BOLD);
-        monthCombo.setPreferredSize(new Dimension(140, 32));
+        monthCombo.setPreferredSize(new Dimension(190, 32));
+        monthCombo.addActionListener(e -> loadPreviewTrips());
         topBar.add(monthCombo);
 
         topBar.add(new JLabel("Select Year:"));
@@ -82,6 +88,7 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
         yearCombo.setSelectedItem("2026");
         yearCombo.setFont(UITheme.FONT_BODY_BOLD);
         yearCombo.setPreferredSize(new Dimension(100, 32));
+        yearCombo.addActionListener(e -> loadPreviewTrips());
         topBar.add(yearCombo);
 
         ModernButton previewBtn = new ModernButton("🔍 Preview Trips & Calculate", UITheme.BRAND_BLUE);
@@ -232,6 +239,48 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
         bottomBar.add(downloadArchiveBtn);
         bottomBar.add(refreshArchiveBtn);
 
+        // Archive Filter Toolbar
+        JPanel archiveFilterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+        archiveFilterBar.setBackground(UITheme.CARD_BG);
+        archiveFilterBar.setBorder(UITheme.createCardBorder("Filter Archive Invoices"));
+
+        archiveFilterBar.add(new JLabel("Status:"));
+        archiveStatusCombo = new JComboBox<>(new String[]{"All Statuses", "Paid", "Partially Paid", "Generated"});
+        archiveStatusCombo.setFont(UITheme.FONT_BODY);
+        archiveStatusCombo.setPreferredSize(new Dimension(130, 30));
+        archiveStatusCombo.addActionListener(e -> loadInvoiceArchive());
+        archiveFilterBar.add(archiveStatusCombo);
+
+        archiveFilterBar.add(new JLabel("Year:"));
+        archiveYearCombo = new JComboBox<>(new String[]{"All Years", "2024", "2025", "2026", "2027"});
+        archiveYearCombo.setFont(UITheme.FONT_BODY);
+        archiveYearCombo.setPreferredSize(new Dimension(100, 30));
+        archiveYearCombo.addActionListener(e -> loadInvoiceArchive());
+        archiveFilterBar.add(archiveYearCombo);
+
+        archiveFilterBar.add(new JLabel("Search Invoice No:"));
+        archiveSearchField = new JTextField(12);
+        archiveSearchField.setFont(UITheme.FONT_BODY);
+        archiveSearchField.setPreferredSize(new Dimension(140, 30));
+        archiveSearchField.addActionListener(e -> loadInvoiceArchive());
+        archiveSearchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { loadInvoiceArchive(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { loadInvoiceArchive(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { loadInvoiceArchive(); }
+        });
+        archiveFilterBar.add(archiveSearchField);
+
+        ModernButton resetArchiveBtn = new ModernButton("↺ Reset", UITheme.SECONDARY_GRAY);
+        resetArchiveBtn.setPreferredSize(new Dimension(85, 30));
+        resetArchiveBtn.addActionListener(e -> {
+            archiveStatusCombo.setSelectedIndex(0);
+            archiveYearCombo.setSelectedIndex(0);
+            archiveSearchField.setText("");
+            loadInvoiceArchive();
+        });
+        archiveFilterBar.add(resetArchiveBtn);
+
+        panel.add(archiveFilterBar, BorderLayout.NORTH);
         panel.add(scrollPane, BorderLayout.CENTER);
         panel.add(bottomBar,  BorderLayout.SOUTH);
         return panel;
@@ -241,7 +290,8 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
         previewTableModel.setRowCount(0);
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
 
-        int month = monthCombo.getSelectedIndex() + 1; // 1 to 12
+        int selectedIdx = monthCombo.getSelectedIndex();
+        int month = (selectedIdx == 0) ? -1 : selectedIdx; // -1 = All Months
         int year = Integer.parseInt((String) yearCombo.getSelectedItem());
 
         // STRICT ISOLATION: company_id is fixed to companyAdmin.getCompanyId()
@@ -265,7 +315,8 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
             });
         }
 
-        previewSummaryLabel.setText("Billing Month: " + MONTHS[month - 1] + " " + year +
+        String monthText = (month <= 0) ? "All Months" : MONTHS[month];
+        previewSummaryLabel.setText("Billing Month: " + monthText + " " + year +
                 "   |   Completed Trips: " + currentPreviewTrips.size() +
                 "   |   Drivers Engaged: " + driversInvolved.size() +
                 "   |   Total Payable: ₹ " + String.format("%,.2f", totalAmount));
@@ -310,12 +361,36 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
         // STRICT ISOLATION: company_id = companyAdmin.getCompanyId()
         companyInvoices = invoiceDAO.getInvoicesByCompany(companyAdmin.getCompanyId());
 
+        String statusFilter = (archiveStatusCombo != null && archiveStatusCombo.getSelectedItem() != null)
+                ? (String) archiveStatusCombo.getSelectedItem() : "All Statuses";
+        String yearFilter = (archiveYearCombo != null && archiveYearCombo.getSelectedItem() != null)
+                ? (String) archiveYearCombo.getSelectedItem() : "All Years";
+        String kw = (archiveSearchField != null) ? archiveSearchField.getText().trim().toLowerCase() : "";
+
         for (Invoice inv : companyInvoices) {
+            if (!"All Statuses".equalsIgnoreCase(statusFilter) && !statusFilter.equalsIgnoreCase(inv.getStatus())) {
+                continue;
+            }
+            if (!"All Years".equalsIgnoreCase(yearFilter)) {
+                try {
+                    int y = Integer.parseInt(yearFilter);
+                    if (inv.getBillingYear() != y) continue;
+                } catch (NumberFormatException ignored) {}
+            }
+            if (!kw.isEmpty()) {
+                String invNum = inv.getInvoiceNumber() != null ? inv.getInvoiceNumber().toLowerCase() : "";
+                if (!invNum.contains(kw)) continue;
+            }
+
+            String period = (inv.getBillingMonth() <= 0 || inv.getBillingMonth() >= MONTHS.length)
+                    ? "All Months " + inv.getBillingYear()
+                    : MONTHS[inv.getBillingMonth()] + " " + inv.getBillingYear();
+
             archiveTableModel.addRow(new Object[]{
                 inv.getId(),
                 inv.getInvoiceNumber(),
                 sdf.format(inv.getInvoiceDate()),
-                MONTHS[Math.max(0, inv.getBillingMonth() - 1)] + " " + inv.getBillingYear(),
+                period,
                 inv.getTotalTrips(),
                 String.format("₹ %,.2f", inv.getTotalAmount()),
                 String.format("₹ %,.2f", inv.getAmountPaid()),
@@ -331,7 +406,8 @@ public class CompanyMonthlyInvoicePanel extends JPanel implements Refreshable {
             return;
         }
 
-        int month = monthCombo.getSelectedIndex() + 1;
+        int selectedIdx = monthCombo.getSelectedIndex();
+        int month = (selectedIdx == 0) ? 0 : selectedIdx; // 0 = All Months
         int year = Integer.parseInt((String) yearCombo.getSelectedItem());
 
         double totalAmount = 0.0;

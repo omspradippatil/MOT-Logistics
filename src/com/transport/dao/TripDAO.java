@@ -133,6 +133,10 @@ public class TripDAO {
      * Pass -1 to ignore any filter parameter.
      */
     public List<Trip> getTripsByFilter(int driverId, int companyId, int vehicleId, int month, int year) {
+        return getTripsByFilter(driverId, companyId, vehicleId, month, year, null);
+    }
+
+    public List<Trip> getTripsByFilter(int driverId, int companyId, int vehicleId, int month, int year, String searchKeyword) {
         List<Trip> trips = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
             "SELECT t.*, c.company_name, d.driver_name, v.registration_number " +
@@ -147,6 +151,9 @@ public class TripDAO {
         if (vehicleId > 0) sql.append(" AND t.vehicle_id=?");
         if (month > 0)     sql.append(" AND MONTH(t.trip_date)=?");
         if (year > 0)      sql.append(" AND YEAR(t.trip_date)=?");
+        if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
+            sql.append(" AND (LOWER(t.source_location) LIKE ? OR LOWER(t.destination) LIKE ? OR LOWER(t.trip_code) LIKE ? OR LOWER(c.company_name) LIKE ? OR LOWER(d.driver_name) LIKE ? OR LOWER(v.registration_number) LIKE ? OR LOWER(COALESCE(t.goods_description, '')) LIKE ?)");
+        }
         sql.append(" ORDER BY t.trip_date DESC, t.id DESC");
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -158,6 +165,16 @@ public class TripDAO {
             if (vehicleId > 0) stmt.setInt(idx++, vehicleId);
             if (month > 0)     stmt.setInt(idx++, month);
             if (year > 0)      stmt.setInt(idx++, year);
+            if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
+                String pattern = "%" + searchKeyword.trim().toLowerCase() + "%";
+                stmt.setString(idx++, pattern);
+                stmt.setString(idx++, pattern);
+                stmt.setString(idx++, pattern);
+                stmt.setString(idx++, pattern);
+                stmt.setString(idx++, pattern);
+                stmt.setString(idx++, pattern);
+                stmt.setString(idx++, pattern);
+            }
 
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
@@ -220,7 +237,7 @@ public class TripDAO {
         if (month > 0)     sql.append(" AND MONTH(t.trip_date) = ?");
         if (year > 0)      sql.append(" AND YEAR(t.trip_date) = ?");
         if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
-            sql.append(" AND (LOWER(t.source_location) LIKE ? OR LOWER(t.destination) LIKE ? OR LOWER(t.trip_code) LIKE ?)");
+            sql.append(" AND (LOWER(t.source_location) LIKE ? OR LOWER(t.destination) LIKE ? OR LOWER(t.trip_code) LIKE ? OR LOWER(d.driver_name) LIKE ? OR LOWER(v.registration_number) LIKE ? OR LOWER(COALESCE(t.goods_description, '')) LIKE ?)");
         }
         sql.append(" ORDER BY t.trip_date DESC, t.id DESC");
 
@@ -235,6 +252,9 @@ public class TripDAO {
             if (year > 0)      stmt.setInt(idx++, year);
             if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
                 String pattern = "%" + searchKeyword.trim().toLowerCase() + "%";
+                stmt.setString(idx++, pattern);
+                stmt.setString(idx++, pattern);
+                stmt.setString(idx++, pattern);
                 stmt.setString(idx++, pattern);
                 stmt.setString(idx++, pattern);
                 stmt.setString(idx++, pattern);
@@ -274,7 +294,7 @@ public class TripDAO {
         if (month > 0)     sql.append(" AND MONTH(t.trip_date) = ?");
         if (year > 0)      sql.append(" AND YEAR(t.trip_date) = ?");
         if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
-            sql.append(" AND (LOWER(t.source_location) LIKE ? OR LOWER(t.destination) LIKE ? OR LOWER(t.trip_code) LIKE ?)");
+            sql.append(" AND (LOWER(t.source_location) LIKE ? OR LOWER(t.destination) LIKE ? OR LOWER(t.trip_code) LIKE ? OR LOWER(c.company_name) LIKE ? OR LOWER(v.registration_number) LIKE ? OR LOWER(COALESCE(t.goods_description, '')) LIKE ?)");
         }
         sql.append(" ORDER BY t.trip_date DESC, t.id DESC");
 
@@ -289,6 +309,9 @@ public class TripDAO {
             if (year > 0)      stmt.setInt(idx++, year);
             if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
                 String pattern = "%" + searchKeyword.trim().toLowerCase() + "%";
+                stmt.setString(idx++, pattern);
+                stmt.setString(idx++, pattern);
+                stmt.setString(idx++, pattern);
                 stmt.setString(idx++, pattern);
                 stmt.setString(idx++, pattern);
                 stmt.setString(idx++, pattern);

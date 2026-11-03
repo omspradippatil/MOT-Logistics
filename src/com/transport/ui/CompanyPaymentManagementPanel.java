@@ -34,6 +34,10 @@ public class CompanyPaymentManagementPanel extends JPanel implements Refreshable
     private JLabel totalPaidCard;
     private JLabel totalRemainingCard;
 
+    private JComboBox<String> statusCombo;
+    private JComboBox<String> yearCombo;
+    private JTextField         searchField;
+
     private InvoiceDAO invoiceDAO = new InvoiceDAO();
     private PaymentDAO paymentDAO = new PaymentDAO();
 
@@ -62,6 +66,53 @@ public class CompanyPaymentManagementPanel extends JPanel implements Refreshable
         statCardsPanel.add(totalBilledCard);
         statCardsPanel.add(totalPaidCard);
         statCardsPanel.add(totalRemainingCard);
+
+        JPanel topContainer = new JPanel(new BorderLayout(0, 8));
+        topContainer.setOpaque(false);
+        topContainer.add(statCardsPanel, BorderLayout.NORTH);
+
+        // Filter toolbar
+        JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+        filterBar.setBackground(UITheme.CARD_BG);
+        filterBar.setBorder(UITheme.createCardBorder("Filter Payment Invoices"));
+
+        filterBar.add(new JLabel("Status:"));
+        statusCombo = new JComboBox<>(new String[]{"All Statuses", "Paid", "Partially Paid", "Generated", "Pending"});
+        statusCombo.setFont(UITheme.FONT_BODY);
+        statusCombo.setPreferredSize(new Dimension(130, 30));
+        statusCombo.addActionListener(e -> loadPayments());
+        filterBar.add(statusCombo);
+
+        filterBar.add(new JLabel("Year:"));
+        yearCombo = new JComboBox<>(new String[]{"All Years", "2024", "2025", "2026", "2027"});
+        yearCombo.setFont(UITheme.FONT_BODY);
+        yearCombo.setPreferredSize(new Dimension(100, 30));
+        yearCombo.addActionListener(e -> loadPayments());
+        filterBar.add(yearCombo);
+
+        filterBar.add(new JLabel("Search Invoice:"));
+        searchField = new JTextField(12);
+        searchField.setFont(UITheme.FONT_BODY);
+        searchField.setPreferredSize(new Dimension(140, 30));
+        searchField.addActionListener(e -> loadPayments());
+        searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { loadPayments(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { loadPayments(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { loadPayments(); }
+        });
+        filterBar.add(searchField);
+
+        ModernButton resetBtn = new ModernButton("↺ Reset", UITheme.SECONDARY_GRAY);
+        resetBtn.setPreferredSize(new Dimension(85, 30));
+        resetBtn.addActionListener(e -> {
+            statusCombo.setSelectedIndex(0);
+            yearCombo.setSelectedIndex(0);
+            searchField.setText("");
+            loadPayments();
+        });
+        filterBar.add(resetBtn);
+
+        topContainer.add(filterBar, BorderLayout.SOUTH);
 
         // Table
         String[] cols = {
@@ -98,7 +149,7 @@ public class CompanyPaymentManagementPanel extends JPanel implements Refreshable
         bottomBar.add(recordPayBtn);
         bottomBar.add(refreshBtn);
 
-        add(statCardsPanel, BorderLayout.NORTH);
+        add(topContainer,   BorderLayout.NORTH);
         add(scrollPane,     BorderLayout.CENTER);
         add(bottomBar,      BorderLayout.SOUTH);
     }
@@ -123,20 +174,44 @@ public class CompanyPaymentManagementPanel extends JPanel implements Refreshable
         // STRICT ISOLATION: company_id = companyAdmin.getCompanyId()
         invoices = invoiceDAO.getInvoicesByCompany(companyAdmin.getCompanyId());
 
+        String statusFilter = (statusCombo != null && statusCombo.getSelectedItem() != null)
+                ? (String) statusCombo.getSelectedItem() : "All Statuses";
+        String yearFilter = (yearCombo != null && yearCombo.getSelectedItem() != null)
+                ? (String) yearCombo.getSelectedItem() : "All Years";
+        String kw = (searchField != null) ? searchField.getText().trim().toLowerCase() : "";
+
         double totalBilled = 0.0;
         double totalPaid   = 0.0;
         double totalRem    = 0.0;
 
         for (Invoice inv : invoices) {
+            if (!"All Statuses".equalsIgnoreCase(statusFilter) && !statusFilter.equalsIgnoreCase(inv.getStatus())) {
+                continue;
+            }
+            if (!"All Years".equalsIgnoreCase(yearFilter)) {
+                try {
+                    int y = Integer.parseInt(yearFilter);
+                    if (inv.getBillingYear() != y) continue;
+                } catch (NumberFormatException ignored) {}
+            }
+            if (!kw.isEmpty()) {
+                String invNum = inv.getInvoiceNumber() != null ? inv.getInvoiceNumber().toLowerCase() : "";
+                if (!invNum.contains(kw)) continue;
+            }
+
             totalBilled += inv.getTotalAmount();
             totalPaid   += inv.getAmountPaid();
             totalRem    += inv.getRemainingAmount();
+
+            String period = (inv.getBillingMonth() <= 0)
+                    ? "All Months " + inv.getBillingYear()
+                    : inv.getBillingMonth() + "/" + inv.getBillingYear();
 
             tableModel.addRow(new Object[]{
                 inv.getId(),
                 inv.getInvoiceNumber(),
                 sdf.format(inv.getInvoiceDate()),
-                inv.getBillingMonth() + "/" + inv.getBillingYear(),
+                period,
                 String.format("₹ %,.2f", inv.getTotalAmount()),
                 String.format("₹ %,.2f", inv.getAmountPaid()),
                 String.format("₹ %,.2f", inv.getRemainingAmount()),
