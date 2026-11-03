@@ -116,16 +116,20 @@ public class InvoiceGenerator {
                 sb.append("BT /F1 10 Tf 45 698 Td (Billing Period:) Tj ET\n");
                 sb.append("BT /F2 10 Tf 140 698 Td (").append(cleanPdfText(periodText)).append(") Tj ET\n");
 
+                String compBilled = invoice.getCompanyName() != null ? invoice.getCompanyName() : "-";
+                if (compBilled.length() > 24) compBilled = compBilled.substring(0, 22) + "..";
                 sb.append("BT /F1 10 Tf 315 734 Td (Billed To:) Tj ET\n");
-                sb.append("BT /F2 10 Tf 385 734 Td (").append(cleanPdfText(invoice.getCompanyName())).append(") Tj ET\n");
+                sb.append("BT /F2 10 Tf 385 734 Td (").append(cleanPdfText(compBilled)).append(") Tj ET\n");
 
                 String driverText = (invoice.getDriverName() != null && !invoice.getDriverName().isEmpty())
                         ? invoice.getDriverName() : "All / Fleet Operations";
+                if (driverText.length() > 24) driverText = driverText.substring(0, 22) + "..";
                 sb.append("BT /F1 10 Tf 315 716 Td (Driver:) Tj ET\n");
                 sb.append("BT /F2 10 Tf 385 716 Td (").append(cleanPdfText(driverText)).append(") Tj ET\n");
 
                 String vehicleText = (invoice.getVehicleNumber() != null && !invoice.getVehicleNumber().isEmpty())
                         ? invoice.getVehicleNumber() : "Fleet Operations";
+                if (vehicleText.length() > 24) vehicleText = vehicleText.substring(0, 22) + "..";
                 sb.append("BT /F1 10 Tf 315 698 Td (Vehicle:) Tj ET\n");
                 sb.append("BT /F2 10 Tf 385 698 Td (").append(cleanPdfText(vehicleText)).append(") Tj ET\n");
 
@@ -155,7 +159,9 @@ public class InvoiceGenerator {
                     sb.append("40 ").append(y - 5).append(" 515 0.5 re f\n");
 
                     String dName = trip.getDriverName() != null ? trip.getDriverName() : "-";
+                    if (dName.length() > 13) dName = dName.substring(0, 11) + "..";
                     String vNo   = trip.getVehicleNumber() != null ? trip.getVehicleNumber() : "-";
+                    if (vNo.length() > 13) vNo = vNo.substring(0, 11) + "..";
                     String route = trip.getSourceLocation() + " -> " + trip.getDestination();
                     if (route.length() > 28) route = route.substring(0, 26) + "..";
 
@@ -305,8 +311,10 @@ public class InvoiceGenerator {
             };
 
             for (String[] row : fields) {
+                String val = row[1] != null ? row[1] : "-";
+                if (val.length() > 48) val = val.substring(0, 45) + "..";
                 sb.append("BT /F1 10 Tf 55 ").append(y).append(" Td (").append(cleanPdfText(row[0])).append(":) Tj ET\n");
-                sb.append("BT /F2 10 Tf 220 ").append(y).append(" Td (").append(cleanPdfText(row[1])).append(") Tj ET\n");
+                sb.append("BT /F2 10 Tf 220 ").append(y).append(" Td (").append(cleanPdfText(val)).append(") Tj ET\n");
                 sb.append("0.88 0.9 0.94 rg\n");
                 sb.append("55 ").append(y - 6).append(" 480 0.5 re f\n");
                 sb.append("0.1 0.1 0.1 rg\n");
@@ -428,11 +436,11 @@ public class InvoiceGenerator {
                 sb.append("40 725 515 22 re f\n");
                 sb.append("0.06 0.15 0.33 rg\n");
                 sb.append("BT /F1 9 Tf 45 732 Td (Trip) Tj ET\n");
-                sb.append("BT /F1 9 Tf 90 732 Td (Date) Tj ET\n");
-                sb.append("BT /F1 9 Tf 145 732 Td (Company) Tj ET\n");
-                sb.append("BT /F1 9 Tf 245 732 Td (Driver) Tj ET\n");
-                sb.append("BT /F1 9 Tf 325 732 Td (From -> To) Tj ET\n");
-                sb.append("BT /F1 9 Tf 465 732 Td (Amount (INR)) Tj ET\n");
+                sb.append("BT /F1 9 Tf 135 732 Td (Date) Tj ET\n");
+                sb.append("BT /F1 9 Tf 198 732 Td (Company) Tj ET\n");
+                sb.append("BT /F1 9 Tf 288 732 Td (Driver) Tj ET\n");
+                sb.append("BT /F1 9 Tf 373 732 Td (From -> To) Tj ET\n");
+                sb.append("BT /F1 9 Tf 485 732 Td (Amount (INR)) Tj ET\n");
 
                 int y = 705;
                 int count = 0;
@@ -441,22 +449,26 @@ public class InvoiceGenerator {
                     sb.append("0.92 0.94 0.96 rg\n");
                     sb.append("40 ").append(y - 4).append(" 515 0.5 re f\n");
                     sb.append("0.15 0.15 0.15 rg\n");
-                    sb.append("BT /F2 8.5 Tf 45 ").append(y).append(" Td (").append(cleanPdfText(t.getTripCode())).append(") Tj ET\n");
-                    sb.append("BT /F2 8.5 Tf 90 ").append(y).append(" Td (").append(sdf.format(t.getTripDate())).append(") Tj ET\n");
+
+                    String code = t.getTripCode() != null ? t.getTripCode() : "-";
+                    if (code.length() > 14) code = code.substring(0, 12) + "..";
+                    sb.append("BT /F2 8.5 Tf 45 ").append(y).append(" Td (").append(cleanPdfText(code)).append(") Tj ET\n");
+
+                    sb.append("BT /F2 8.5 Tf 135 ").append(y).append(" Td (").append(sdf.format(t.getTripDate())).append(") Tj ET\n");
 
                     String comp = t.getCompanyName() != null ? t.getCompanyName() : "-";
-                    if (comp.length() > 18) comp = comp.substring(0, 16) + "..";
-                    sb.append("BT /F2 8.5 Tf 145 ").append(y).append(" Td (").append(cleanPdfText(comp)).append(") Tj ET\n");
+                    if (comp.length() > 14) comp = comp.substring(0, 12) + "..";
+                    sb.append("BT /F2 8.5 Tf 198 ").append(y).append(" Td (").append(cleanPdfText(comp)).append(") Tj ET\n");
 
                     String dname = t.getDriverName() != null ? t.getDriverName() : "-";
-                    if (dname.length() > 14) dname = dname.substring(0, 12) + "..";
-                    sb.append("BT /F2 8.5 Tf 245 ").append(y).append(" Td (").append(cleanPdfText(dname)).append(") Tj ET\n");
+                    if (dname.length() > 13) dname = dname.substring(0, 11) + "..";
+                    sb.append("BT /F2 8.5 Tf 288 ").append(y).append(" Td (").append(cleanPdfText(dname)).append(") Tj ET\n");
 
                     String route = t.getSourceLocation() + " -> " + t.getDestination();
-                    if (route.length() > 24) route = route.substring(0, 22) + "..";
-                    sb.append("BT /F2 8.5 Tf 325 ").append(y).append(" Td (").append(cleanPdfText(route)).append(") Tj ET\n");
+                    if (route.length() > 19) route = route.substring(0, 17) + "..";
+                    sb.append("BT /F2 8.5 Tf 373 ").append(y).append(" Td (").append(cleanPdfText(route)).append(") Tj ET\n");
 
-                    sb.append("BT /F2 8.5 Tf 465 ").append(y).append(" Td (").append(String.format("%,.2f", t.getAmount())).append(") Tj ET\n");
+                    sb.append("BT /F2 8.5 Tf 485 ").append(y).append(" Td (").append(String.format("%,.2f", t.getAmount())).append(") Tj ET\n");
 
                     y -= 19;
                     tripIndex++;
